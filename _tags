@@ -6,5 +6,6 @@
 <expander/*.ml>: for-pack(Ppx_hash_expander_lib)
 <runtime-lib/*.ml>: for-pack(Ppx_hash_lib)
 <runtime-lib/*.ml{,i}>: ppx-driver(ppx_compare+ppx_sexp_conv)
+<runtime-lib/*.c>: needs_headers
 # OASIS_START
 # OASIS_STOP

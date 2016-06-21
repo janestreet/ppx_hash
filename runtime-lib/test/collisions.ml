@@ -106,6 +106,7 @@ module Tests(Hash : Ppx_hash_lib.Hash_intf.S with type hash_value = int) = struc
     assert (not (phys_same a1 d))
 
   let%test_unit _ = assert_different hash_string "\200\200\200\200" "\200a\200\200"
+  let%test_unit _ = assert_different hash_string "\200\200\200" "\200a\200"
 
   let%test_unit "int collisions" =
     Map.to_alist (
