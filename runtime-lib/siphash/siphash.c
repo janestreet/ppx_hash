@@ -79,11 +79,11 @@
 
 struct hash_state
 {
-  uint64 v0, v1, v2, v3;
+  uint64_t v0, v1, v2, v3;
 };
 
 /* internal */
-void siphash_fold_uint64(value state, uint64 i)
+void siphash_fold_uint64(value state, uint64_t i)
 {
   struct hash_state * h = (struct hash_state *) state;
   h->v3 ^= i;
@@ -105,18 +105,18 @@ CAMLprim value siphash_fold_int(value st, value i)
 }
 
 /* The code has been 'borrowed' from byterun/hash.c in ocaml */
-CAMLexport uint64 caml_hash_normalize_double_to_int64(double d)
+CAMLexport uint64_t caml_hash_normalize_double_to_int64(double d)
 {
   union {
     double d;
-    uint64 i64;
+    uint64_t i64;
 #if defined(ARCH_BIG_ENDIAN) || (defined(__arm__) && !defined(__ARM_EABI__))
-    struct { uint32 h; uint32 l; } i;
+    struct { uint32_t h; uint32_t l; } i;
 #else
-    struct { uint32 l; uint32 h; } i;
+    struct { uint32_t l; uint32_t h; } i;
 #endif
   } u;
-  uint32 h, l;
+  uint32_t h, l;
   /* Convert to two 32-bit halves */
   u.d = d;
   h = u.i.h; l = u.i.l;
@@ -147,7 +147,7 @@ CAMLprim value siphash_fold_string(value st, value s)
   const int left = len & 7;
   unsigned char * in;
   mlsize_t i;
-  uint64 w;
+  uint64_t w;
   /* The length must be mixed in before the elements to avoid a violation of the rule described by Perfect_hash. */
   siphash_fold_uint64(st, ((uint64_t)len));
   /* Mix by 64-bit blocks (little-endian) */

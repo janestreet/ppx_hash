@@ -195,10 +195,10 @@ and hash_variant hsv loc row_fields value =
 
 and branch_of_sum hsv ~loc cd =
   match cd.pcd_args with
-  | [] ->
+  | Pcstr_tuple [] ->
      let pcnstr = pconstruct cd None in
      case ~guard:None ~lhs:pcnstr ~rhs:hsv
-  | tps ->
+  | Pcstr_tuple tps ->
      let ids_ty =
        List.mapi tps ~f:(fun i ty -> (Printf.sprintf "_a%d" i, ty))
      in
@@ -209,6 +209,8 @@ and branch_of_sum hsv ~loc cd =
      case ~guard:None
        ~lhs:(pconstruct cd (Some lpatt))
        ~rhs:body
+  | Pcstr_record _ ->
+    Location.raise_errorf ~loc "Inline records not supported"
 
 and branches_of_sum hsv = function
   | [cd] ->
@@ -385,11 +387,14 @@ let str_type_decl ~loc ~path:_ (rec_flag, tds) =
     let bindings = List.map ~f:hash_fold_structure_item_of_td tds in
     pstr_value ~loc rec_flag bindings
   in
-  let hash_definitions =
-    let bindings = List.concat (List.map ~f:hash_structure_item_of_td tds) in
-    pstr_value ~loc Nonrecursive bindings
+  let hash_definition_bindings =
+    List.concat (List.map ~f:hash_structure_item_of_td tds)
   in
-  [ hash_fold_definitions; hash_definitions ]
+  match hash_definition_bindings with
+  | [] -> [ hash_fold_definitions ]
+  | bindings ->
+    let hash_definitions = pstr_value ~loc Nonrecursive bindings in
+    [ hash_fold_definitions; hash_definitions ]
 
 let sig_type_decl ~loc:_ ~path:_ (_rec_flag, tds) =
   List.concat (List.map tds ~f:(fun td ->

@@ -58,7 +58,7 @@ module Use_of_hash_fold_syntax_extension = struct
 end
 [%%expect{|
 module Use_of_hash_fold_syntax_extension :
-  sig val f : Hash.state -> (int * bytes) list -> Hash.state end
+  sig val f : Hash.state -> (int * string) list -> Hash.state end
 |}]
 
 module Support_for_builtins = struct
@@ -69,7 +69,7 @@ module Support_for_builtins :
   sig
     val f :
       Hash.state ->
-      (nativeint * int64 * int32 * char * int * bool * bytes * float * unit)
+      (nativeint * int64 * int32 * char * int * bool * string * float * unit)
       option list lazy_t -> Hash.state
   end
 |}]

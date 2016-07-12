@@ -1,4 +1,7 @@
-include Hash_intf.S with type seed = int and type hash_value = int
+include Hash_intf.S
+  with type state      = private int (** allow optimizations for immediate type *)
+   and type seed       = int
+   and type hash_value = int
 
 external create_seeded  : seed            -> state = "%identity"                "noalloc"
 external fold_int64     : state -> int64  -> state = "internalhash_fold_int64"  "noalloc"
