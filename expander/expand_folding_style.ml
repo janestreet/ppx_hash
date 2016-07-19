@@ -209,8 +209,14 @@ and branch_of_sum hsv ~loc cd =
      case ~guard:None
        ~lhs:(pconstruct cd (Some lpatt))
        ~rhs:body
-  | Pcstr_record _ ->
-    Location.raise_errorf ~loc "Inline records not supported"
+  | Pcstr_record lds ->
+    let arg = "_ir" in
+    let pat = pvar ~loc arg in
+    let v = evar ~loc arg in
+    let body = hash_fold_of_record hsv loc lds v in
+    case ~guard:None
+      ~lhs:(pconstruct cd (Some pat))
+      ~rhs:body
 
 and branches_of_sum hsv = function
   | [cd] ->
@@ -258,7 +264,7 @@ and hash_fold_of_ty_fun ~type_constraint ty =
         [%e hash_fold_of_ty (evar ~loc hsv) ty (evar ~loc arg) ]
   ]
 
-let hash_fold_of_record hsv _loc lds value =
+and hash_fold_of_record hsv _loc lds value =
   let is_evar = function
     | { pexp_desc = Pexp_ident _; _ } -> true
     | _                               -> false
