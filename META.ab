@@ -1,14 +1,14 @@
 version = "$(pkg_version)"
 description = "A ppx rewriter that generates hash functions from type expressions and definitions"
-requires(-ppx_driver) = "ppx_core.for_ppx_deriving ppx_driver.for_ppx_deriving ppx_hash.expander.for_ppx_deriving ppx_hash.runtime-lib ppx_type_conv.for_ppx_deriving"
-requires(ppx_driver) = "ppx_core ppx_driver ppx_hash.expander ppx_type_conv"
+requires = "ppx_core ppx_driver ppx_hash.expander ppx_type_conv"
+requires(-ppx_driver)        += "ppx_hash.runtime-lib"
 requires(ppx_driver,toploop) += "ppx_hash.runtime-lib"
 archive(ppx_driver, byte  ) = "ppx_hash.cma"
 archive(ppx_driver, native) = "ppx_hash.cmxa"
 plugin(ppx_driver, byte  ) = "ppx_hash.cma"
 plugin(ppx_driver, native) = "ppx_hash.cmxs"
 exists_if = "ppx_hash.cma"
-ppxopt(-ppx_driver,-custom_ppx) = "ppx_deriving,./ppx_hash.cma"
+ppxopt(-ppx_driver,-custom_ppx) = "ppx_deriving,package:ppx_hash"
 
 package "expander" (
   version = "$(pkg_version)"
@@ -19,15 +19,6 @@ package "expander" (
   plugin(byte  ) = "ppx_hash_expander_lib.cma"
   plugin(native) = "ppx_hash_expander_lib.cmxs"
   exists_if = "ppx_hash_expander_lib.cma"
-
-  # Until this is released: https://github.com/whitequark/ppx_deriving/pull/95
-  package "for_ppx_deriving" (
-    description = "Don't use this directly"
-    error(ppx_driver) = "Cannot use ppx_hash.expander.for_ppx_deriving when ppx_driver is set"
-    requires = "compiler-libs.common ppx_core.for_ppx_deriving ppx_deriving"
-    exists_if = "ppx_hash_expander_lib.cma"
-    ppxopt(-custom_ppx) = "ppx_deriving,./ppx_hash_expander_lib.cma"
-  )
 )
 
 package "runtime-lib" (
