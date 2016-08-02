@@ -38,8 +38,8 @@ end
 
 let hash = `Should_refer_to_Hashtbl_hash_explicitly
 
-type 'a array_with_hashing = 'a array
-type 'a ref_with_hashing = 'a ref
+type 'a array_frozen = 'a array
+type 'a ref_frozen = 'a ref
 
 module M1s = struct type s = unit [@@deriving hash] end
 
@@ -65,29 +65,22 @@ module M9 = struct type t = bool * float * int [@@deriving hash] end
 
 module M10 = struct type t = bool * float * int * string [@@deriving hash]  end
 
-module M11 = struct type t = int ref_with_hashing [@@deriving hash] end
+module M11 = struct type t = int ref_frozen [@@deriving hash] end
 
 module M12 = struct type t = (float * float) option [@@deriving hash] end
 
-module M13 = struct type t = float array_with_hashing [@@deriving hash] end
+module M13 = struct type t = float array_frozen [@@deriving hash] end
 
-module M14 = struct type t = (int * int) array_with_hashing [@@deriving hash] end
+module M14 = struct type t = (int * int) array_frozen [@@deriving hash] end
 
-module M15 = struct type t = float array_with_hashing array_with_hashing [@@deriving hash] end
+module M15 = struct type t = float array_frozen array_frozen [@@deriving hash] end
 
 module M16 = struct type t = int list [@@deriving hash] end
 
 module M17 = struct type t = {
   s : string;
-  b : float array_with_hashing list;
+  b : float array_frozen list;
   mutable c : (int * int64 option); [@no_hashing]
-} [@@deriving hash]
-end
-
-module M17' = struct type t = {
-  s : string;
-  b : float array_with_hashing list;
-  mutable c : (int * int64 option); [@with_hashing]
 } [@@deriving hash]
 end
 
@@ -112,7 +105,7 @@ module M24 = struct type t = int * string * [`Foo | `Bar ] [@@deriving hash] end
 
 module M25 = struct type t = String.t [@@deriving hash] end
 
-module M26 = struct type 'a t = 'a array_with_hashing [@@deriving hash] end
+module M26 = struct type 'a t = 'a array_frozen [@@deriving hash] end
 
 module MyList = struct type 'a t = Nil | Node of 'a * 'a t [@@deriving hash] end
 

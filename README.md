@@ -5,7 +5,7 @@ Syntax
 
 Type definitions: `[@@deriving hash]`
 Expressions: `[%hash_fold: TYPE]` and `[%hash: TYPE]`
-Record fields: `[@no_hashing]` and `[@with_hashing]`
+Record fields: `[@no_hashing]`
 
 Basic usage
 -----------
@@ -46,8 +46,7 @@ Special support for record fields
 ---------------------------------
 
 Record fields can be annotated with `[@no_hashing]` so that they are not incorporated into
-the computed hash value. In the case of mutable fields, there must be an annotation, which
-can be either `[@no_hashing]` or `[@with_hashing]`. For example:
+the computed hash value. In the case of mutable fields, there must be such an annotation.
 
 ```ocaml
     type t = {
@@ -55,9 +54,6 @@ can be either `[@no_hashing]` or `[@with_hashing]`. For example:
       x : (int * bool) list;
     } [@@deriving hash]
 ```
-
-The `[@no_hashing]` is the safe option; while `[@with_hashing]` is potentially dangerous,
-since the computed hash changes when the value mutates.
 
 Adapting code to `ppx_hash`
 ---------------------------

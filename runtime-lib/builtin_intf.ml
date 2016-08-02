@@ -19,15 +19,15 @@ module type S = sig
 
   (* Hash support for [array] and [ref] is provided, but is potentially DANGEROUS, since
      it incorporates the current contents of the array/ref into the hash value.  Because
-     of this we add a [_with_hashing] suffix to the function name.
+     of this we add a [_frozen] suffix to the function name.
 
      Hash support for [string] is also potentially DANGEROUS, but strings are mutated less
-     often, so we don't append [_with_hashing] to it.
+     often, so we don't append [_frozen] to it.
 
      Also note that we don't support [bytes].
   *)
 
-  val hash_fold_ref_with_hashing : 'a folder -> 'a ref folder
-  val hash_fold_array_with_hashing : 'a folder -> 'a array folder
+  val hash_fold_ref_frozen : 'a folder -> 'a ref folder
+  val hash_fold_array_frozen : 'a folder -> 'a array folder
 
 end

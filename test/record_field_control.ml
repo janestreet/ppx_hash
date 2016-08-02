@@ -3,7 +3,7 @@ open Core_kernel.Std
 open Ppx_hash_lib.Std
 open Hash.Builtin
 
-(* Tests for record-field attributes [@no_hashing] and [@with_hashing] *)
+(* Tests for record-field attributes [@no_hashing] *)
 
 let check_hash_differently ~hash ~sexp_of_t a b =
   if hash a = hash b
@@ -50,15 +50,4 @@ module Mutable_no_hashing = struct
   let v2 = { s = "ho";  i = 42 }
   let%test_unit _ = check_hash_same ~hash ~sexp_of_t v1 v2
   let%test_unit _ = [%test_eq: int] (hash v1) No_string_field.(hash v1)
-end
-
-module Mutable_with_hashing = struct
-  type t = {
-    mutable s : string; [@with_hashing]
-    i : int;
-  } [@@deriving hash,sexp_of]
-  let v1 = { s = "hey"; i = 42 }
-  let v2 = { s = "ho";  i = 42 }
-  let%test_unit _ = check_hash_differently ~hash ~sexp_of_t v1 v2
-  let%test_unit _ = [%test_eq: int] (hash v1) Immutable.(hash v1)
 end

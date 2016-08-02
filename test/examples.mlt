@@ -123,23 +123,5 @@ type fail = {
 } [@@deriving hash]
 [%%expect{|
 Line _, characters 2-18:
-ppx_hash: require [@with_hashing] or [@no_hashing] on mutable record field
-|}]
-
-type fail = {
-  mutable u : int; [@with_hashing] [@no_hashing]
-  s : string;
-} [@@deriving hash]
-[%%expect{|
-Line _, characters 2-48:
-ppx_hash: record field cannot be both [@with_hashing] and [@no_hashing]
-|}]
-
-type fail = {
-  u : int; [@with_hashing]
-  s : string;
-} [@@deriving hash]
-[%%expect{|
-Line _, characters 2-26:
-ppx_hash: unexpected [@with_hashing] on non-mutable record field
+ppx_hash: require [@no_hashing] on mutable record field
 |}]

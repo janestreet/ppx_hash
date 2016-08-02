@@ -128,10 +128,7 @@ for the element type (nothing new here).
 (5) Special support for record fields:
 
 Record fields can be annotated with [@no_hashing] so that they are not incorporated into
-the computed hash value.
-
-In the case of mutable fields, there must be an annotation, which can be either
-[@no_hashing] or [@with_hashing]. For example:
+the computed hash value. In the case of mutable fields, there must be such an annotation.
 
     type t = {
       mutable s : string; [@no_hashing]
@@ -140,10 +137,6 @@ In the case of mutable fields, there must be an annotation, which can be either
 
     let hash_fold_t : Hash.t -> t -> Hash.t =
       fun hsv  -> fun arg  -> hash_fold_int hsv arg.i
-
-
-The [no_hashing] is the safe option; while [with_hashing] is potentially dangerous, since
-the computed hash changes when the value mutates.
 
 
 (6) Support for builtins:
@@ -181,21 +174,15 @@ put in scope by [open Core.Std] as is done for built-in sexp converters.
 Hash support for [array] and [ref] is not provided directly, because of the danger
 when hashing mutable values: the computed hash changes when the value mutates.
 
-Instead we provide [.._no_hashing] [.._with_hashing] type aliases, with the
-corresponding [hash_fold_<T>] function.
+Instead we provide [.._frozen] type aliases, with the corresponding [hash_fold_<T>] function.
 
-  type 'a ref_with_hashing = 'a ref
-  type 'a ref_no_hashing = 'a ref
-  type 'a array_with_hashing = 'a array
-  type 'a array_no_hashing = 'a array
+  type 'a ref_frozen = 'a ref
+  type 'a array_frozen = 'a array
 
-  val hash_fold_ref_with_hashing : 'a folder -> 'a ref folder
-  val hash_fold_ref_no_hashing : 'a folder -> 'a ref folder
-  val hash_fold_array_with_hashing : 'a folder -> 'a array folder
-  val hash_fold_array_no_hashing : 'a folder -> 'a array folder
+  val hash_fold_ref_frozen : 'a folder -> 'a ref folder
+  val hash_fold_array_frozen : 'a folder -> 'a array folder
 
-Like mutable record fields, [.._no_hashing] is the safe option; while [.._with_hashing] is
-potentially dangerous.
+These are not safe if the ref/array value hashed is mutated.
 
 
 (8) [lazy_t]:

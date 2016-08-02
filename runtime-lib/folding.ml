@@ -43,17 +43,17 @@ module F (Hash : Hash_intf.S) = struct
   let hash_fold_lazy_t hash_fold_elem s x =
     hash_fold_elem s (Lazy.force x)
 
-  let hash_fold_ref_with_hashing hash_fold_elem s x = hash_fold_elem s (!x)
+  let hash_fold_ref_frozen hash_fold_elem s x = hash_fold_elem s (!x)
 
-  let rec hash_fold_array_with_hashing_i hash_fold_elem s array i =
+  let rec hash_fold_array_frozen_i hash_fold_elem s array i =
     if i = Array.length array
     then s
     else
       let e = Array.unsafe_get array i in
-      hash_fold_array_with_hashing_i hash_fold_elem (hash_fold_elem s e) array (i + 1)
+      hash_fold_array_frozen_i hash_fold_elem (hash_fold_elem s e) array (i + 1)
 
-  let hash_fold_array_with_hashing hash_fold_elem s array =
-    hash_fold_array_with_hashing_i
+  let hash_fold_array_frozen hash_fold_elem s array =
+    hash_fold_array_frozen_i
       (* [length] must be incorporated for arrays, as it is for lists. See comment above *)
       hash_fold_elem (hash_fold_int s (Array.length array)) array 0
 

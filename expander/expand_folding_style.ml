@@ -19,16 +19,10 @@ module Attrs = struct
       Attribute.Context.label_declaration
       Ast_pattern.(pstr nil)
       ()
-  let with_hashing =
-    Attribute.declare "hash.with_hashing"
-      Attribute.Context.label_declaration
-      Ast_pattern.(pstr nil)
-      ()
 end
 
 let str_attributes = [
   Attribute.T Attrs.no_hashing;
-  Attribute.T Attrs.with_hashing;
 ]
 
 (* Generate code to compute hash values of type [t] in folding style, following the structure of
@@ -276,21 +270,14 @@ and hash_fold_of_record hsv _loc lds value =
     let field_handling =
       match
         ld.pld_mutable,
-        Attribute.get Attrs.with_hashing ld,
         Attribute.get Attrs.no_hashing ld
       with
-      | Mutable, None, None
-        -> `error "require [@with_hashing] or [@no_hashing] on mutable record field"
-      | (Mutable | Immutable), Some (), Some ()
-        -> `error "record field cannot be both [@with_hashing] and [@no_hashing]"
-      | Mutable, Some (), None ->
-         `incorporate
-      | (Mutable | Immutable), None, Some () ->
+      | Mutable, None
+        -> `error "require [@no_hashing] on mutable record field"
+      | (Mutable | Immutable), Some () ->
          `skip
-      | Immutable, None, None ->
+      | Immutable, None ->
          `incorporate
-      | Immutable, Some (), None  ->
-         `error "unexpected [@with_hashing] on non-mutable record field"
     in
     match field_handling with
     | `error s -> Location.raise_errorf ~loc "ppx_hash: %s" s

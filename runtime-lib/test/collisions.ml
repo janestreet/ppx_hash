@@ -139,8 +139,8 @@ module Tests(Hash : Ppx_hash_lib.Hash_intf.S with type hash_value = int) = struc
       [%sexp_of: string list list list]
       [%hash_fold: string list list list]
 
-  type 'a array_with_hashing = 'a array
-  let sexp_of_array_with_hashing = sexp_of_array
+  type 'a array_frozen = 'a array
+  let sexp_of_array_frozen = sexp_of_array
 
   let%test_unit "array collisions" =
     should_have_no_collisions
@@ -151,8 +151,8 @@ module Tests(Hash : Ppx_hash_lib.Hash_intf.S with type hash_value = int) = struc
         [|[|[|"hello"|]|]|];
         [|[||]; [||]|];
       ]
-      [%sexp_of: string array_with_hashing array_with_hashing array_with_hashing]
-      [%hash_fold: string array_with_hashing array_with_hashing array_with_hashing]
+      [%sexp_of: string array_frozen array_frozen array_frozen]
+      [%hash_fold: string array_frozen array_frozen array_frozen]
 
   let%test_unit "string collisions" =
     should_have_no_collisions
