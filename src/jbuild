@@ -1,0 +1,10 @@
+(library
+ ((name ppx_hash)
+  (public_name ppx_hash)
+  (public_release ((kind ppx_type_conv_plugin)))
+  (wrapped false)
+  (libraries (ppx_core
+              ppx_driver
+              ppx_type_conv
+              ppx_hash_expander_lib))
+  (preprocess ((no_preprocessing All)))))

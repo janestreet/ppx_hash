@@ -1,0 +1,5 @@
+(library
+ ((name ppx_hash_expander_lib)
+  (public_name ppx_hash.expander)
+  (libraries (ocamlcommon ppx_core))
+  (preprocess ((metaquot All)))))
