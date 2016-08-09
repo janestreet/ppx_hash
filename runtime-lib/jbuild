@@ -3,4 +3,5 @@
   (c_names (internalhash_stubs))
   (public_name ppx_hash.runtime-lib)
   (libraries (sexplib))
+  (js_of_ocaml ())
   (preprocess (((pps (ppx_compare ppx_sexp_conv)) All)))))
