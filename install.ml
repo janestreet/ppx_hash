@@ -8,5 +8,4 @@ generate ~package:"ppx_hash"
   ; oasis_lib "ppx_hash_expander_lib"
   ; oasis_lib "ppx_hash_lib"
   ; file "META" ~section:"lib"
-  ; file "include/internalhash.h" ~section:"lib"
   ]
