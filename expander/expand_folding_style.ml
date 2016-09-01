@@ -93,23 +93,6 @@ let make_type_rigid ~type_name =
   end in
   map#core_type
 
-let hash_named (name : Longident.t Located.t) =
-  let loc = name.loc in
-  let path, id =
-    match name.txt with
-    | Ldot (path, id) -> (Some path, id)
-    | Lident id       -> (None     , id)
-    | Lapply _        -> assert false
-  in
-  let ldot path id : Longident.t Located.t =
-    match path with
-    | Some p -> { name with txt = Ldot (p, id) }
-    | None   -> { name with txt = Lident id    }
-  in
-  match path, id with
-  | path, tn ->
-     pexp_ident ~loc (ldot path @@ hash_fold_ tn)
-
 (**
    In this comment we ignore any free variables that have the form "*.hash_fold*" or
    "_hash_fold_". So, a term that only refers to such variables will be called "closed".
@@ -142,9 +125,8 @@ let rec hash_applied hsv ty value =
   let loc = ty.ptyp_loc in
   match ty.ptyp_desc with
   | Ptyp_constr (name, ta) ->
-     let args = List.map ta ~f:(hash_fold_of_ty_fun ~type_constraint:false) in
-     let h_elem = eapply ~loc (hash_named name) args in
-     eapply ~loc h_elem [hsv; value]
+    let args = List.map ta ~f:(hash_fold_of_ty_fun ~type_constraint:false) in
+    type_constr_conv ~loc name ~f:hash_fold_ (args @ [hsv; value])
   | _ -> assert false
 
 and hash_fold_of_tuple hsv loc tys value =
@@ -165,22 +147,15 @@ and hash_variant hsv loc row_fields value =
        case ~guard:None
          ~lhs:(ppat_variant ~loc cnstr (Some (pvar ~loc v)))
          ~rhs:body
-    | Rinherit ({ ptyp_desc = Ptyp_constr (id, [_]); _ } as ty) ->
+    | Rinherit ({ ptyp_desc = Ptyp_constr (id, _); _ } as ty) ->
       (* Generated code from..
          type 'a id = 'a [@@deriving hash]
          type t = [ `a | [ `b ] id ] [@@deriving hash]
          doesn't compile: Also see the "sadly" note in: ppx_compare_expander.ml *)
        let v = "_v" in
-       let call = hash_applied hsv ty (evar ~loc v) in
        case ~guard:None
          ~lhs:(ppat_alias ~loc (ppat_type ~loc id) (Located.mk ~loc v))
-         ~rhs:call
-    | Rinherit { ptyp_desc = Ptyp_constr (id, []); _ } ->
-       let call = hash_named id in
-       let v = "_v" in
-       case ~guard:None
-         ~lhs:(ppat_alias ~loc (ppat_type ~loc id) (Located.mk ~loc v))
-         ~rhs:(eapply ~loc call [hsv; evar ~loc v])
+         ~rhs:(hash_applied hsv ty (evar ~loc v))
     | Rinherit ty ->
        let s = string_of_core_type ty in
        Location.raise_errorf ~loc "ppx_hash: impossible variant case: %s" s
@@ -231,7 +206,6 @@ and hash_sum hsv loc cds value =
 and hash_fold_of_ty hsv ty value =
   let loc = ty.ptyp_loc in
   match ty.ptyp_desc with
-  | Ptyp_constr (id, []) -> eapply ~loc (hash_named id) [hsv; value]
   | Ptyp_constr _ -> hash_applied hsv ty value
   | Ptyp_tuple tys -> hash_fold_of_tuple hsv loc tys value
   | Ptyp_var name -> eapply ~loc (evar ~loc (tp_name name)) [hsv; value]
