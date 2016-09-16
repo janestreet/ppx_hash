@@ -13,7 +13,7 @@ ppxopt(-ppx_driver,-custom_ppx) = "ppx_deriving,package:ppx_hash"
 package "expander" (
   version = "$(pkg_version)"
   description = "Expander for ppx_hash"
-  requires = "compiler-libs.common ppx_core"
+  requires = "compiler-libs.common ppx_core ppx_driver.inside-base"
   archive(byte  ) = "ppx_hash_expander_lib.cma"
   archive(native) = "ppx_hash_expander_lib.cmxa"
   plugin(byte  ) = "ppx_hash_expander_lib.cma"
@@ -24,7 +24,7 @@ package "expander" (
 package "runtime-lib" (
   version = "$(pkg_version)"
   description = "Runtime library for ppx_hash"
-  requires = "sexplib"
+  requires = "base sexplib"
   archive(byte  ) = "ppx_hash_lib.cma"
   archive(native) = "ppx_hash_lib.cmxa"
   plugin(byte  ) = "ppx_hash_lib.cma"

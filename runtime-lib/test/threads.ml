@@ -1,9 +1,11 @@
 
 open Core.Std
 
-module Tests(Hash : Ppx_hash_lib.Hash_intf.S with type hash_value = int) = struct
+module Tests(Hash : Base.Hash_intf.S with type hash_value = int) = struct
 
-  module Ppx_hash_lib = struct module Std = Ppx_hash_lib.Make_std.F(Hash) end
+  module Ppx_hash_lib = struct
+    module Std = struct module Hash = Base.Hash.F(Hash) end
+  end
   module Hash = Ppx_hash_lib.Std.Hash
   open Hash.Builtin
 
@@ -34,5 +36,5 @@ module Tests(Hash : Ppx_hash_lib.Hash_intf.S with type hash_value = int) = struc
 
 end
 
-module T1 = Tests(Ppx_hash_lib.Internalhash)
+module T1 = Tests(Base.Hash)
 module T2 = Tests(Siphash_lib.Siphash)

@@ -1,5 +1,5 @@
 (library
  ((name siphash_lib)
   (c_names (siphash))
-  (libraries (ppx_hash_lib))
+  (libraries (base))
   (preprocess (((pps ()) All)))))

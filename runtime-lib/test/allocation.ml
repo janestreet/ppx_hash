@@ -17,10 +17,10 @@ let check_allocation : expect:int -> (unit -> 'a) -> 'a = fun ~expect f ->
 
 let check_no_allocation f = check_allocation ~expect:0 f
 
-module F(Hash : Ppx_hash_lib.Hash_intf.S) = struct
+module F(Hash : Base.Hash_intf.S) = struct
 
   module Ppx_hash_lib = struct (* override default which is used by generated code *)
-    module Std = Ppx_hash_lib.Make_std.F(Hash)
+    module Std = struct module Hash = Base.Hash.F(Hash) end
   end
 
   include Ppx_hash_lib.Std
@@ -44,7 +44,7 @@ module F(Hash : Ppx_hash_lib.Hash_intf.S) = struct
 end
 
 module Test_alloc (X :sig
-  module Hash : Ppx_hash_lib.Hash_intf.S with type hash_value = int
+  module Hash : Base.Hash_intf.S with type hash_value = int
   val size_of_state : int
   val seed1 : Hash.seed
   val seed2 : Hash.seed
@@ -101,7 +101,7 @@ end) = struct
 end
 
 module Test_alloc_internalhash = Test_alloc(struct
-  module Hash = Ppx_hash_lib.Internalhash
+  module Hash = Base.Hash
   let size_of_state = 0
   let seed1 = 1
   let seed2 = 2

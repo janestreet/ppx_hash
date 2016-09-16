@@ -1,9 +1,9 @@
 open Core_kernel.Std
 
-module Tests(Hash : Ppx_hash_lib.Hash_intf.S with type hash_value = int) = struct
+module Tests(Hash : Base.Hash_intf.S with type hash_value = int) = struct
 
   module Ppx_hash_lib = struct
-    module Std = Ppx_hash_lib.Make_std.F(Hash)
+    module Std = struct module Hash = Base.Hash.F(Hash) end
   end
   open Ppx_hash_lib.Std.Hash.Builtin
   let hash = `dont_use
@@ -165,6 +165,6 @@ module Tests(Hash : Ppx_hash_lib.Hash_intf.S with type hash_value = int) = struc
 
 end
 
-module I = Tests(Ppx_hash_lib.Internalhash)
+module I = Tests(Base.Hash)
 module S = Tests(Siphash_lib.Siphash)
 module P = Tests(Perfect_hash)

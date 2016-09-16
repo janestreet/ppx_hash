@@ -25,24 +25,34 @@ let str_attributes = [
   Attribute.T Attrs.no_hashing;
 ]
 
+let runtime_module_outside_base = Longident.parse "Ppx_hash_lib.Std.Hash"
+let runtime_module_inside_base = Longident.parse "Hash"
+let runtime_module () =
+  if Ppx_inside_base.get ()
+  then runtime_module_inside_base
+  else runtime_module_outside_base
+let runtime_ident name = Longident.Ldot (runtime_module (), name)
+let runtime_loc_ident ~loc name = Located.mk ~loc (runtime_ident name)
+let runtime_expr ~loc name = pexp_ident ~loc (runtime_loc_ident ~loc name)
+let runtime_typ ~loc name args = ptyp_constr ~loc (runtime_loc_ident ~loc name) args
+
 (* Generate code to compute hash values of type [t] in folding style, following the structure of
    the type.  Incorporate all structure when computing hash values, to maximise hash
    quality. Don't attempt to detect/avoid cycles - just loop. *)
 
-let hash_state_t ~loc =
-  [%type: Ppx_hash_lib.Std.Hash.state]
+let hash_state_t ~loc = runtime_typ ~loc "state" []
 
 let hash_fold_type ~loc ty =
   [%type: [%t hash_state_t ~loc] -> [%t ty] -> [%t hash_state_t ~loc]]
 
 let hash_type ~loc ty =
-  [%type: [%t ty] -> Ppx_hash_lib.Std.Hash.hash_value]
+  [%type: [%t ty] -> [%t runtime_typ ~loc "hash_value" []]]
 
 (* Note: The argument [hsv] "hash state value" should not be duplicated either in this
    generator code, or in the generated code. *)
 
 let hash_fold_int hsv ~loc i =
-  [%expr Ppx_hash_lib.Std.Hash.fold_int [%e hsv] [%e eint ~loc i]]
+  eapply ~loc (runtime_expr ~loc "fold_int") [ hsv; eint ~loc i ]
 
 let special_case_types_named_t = function
   | `hash_fold -> false
@@ -280,10 +290,11 @@ let hash_of_ty_fun ~type_constraint ty =
     else
       pvar ~loc arg
   in
+  let new_state = eapply ~loc (runtime_expr ~loc "create") [ eunit ~loc ] in
   [%expr
     fun [%p maybe_constrained_arg] ->
-      Ppx_hash_lib.Std.Hash.get_hash_value
-        [%e hash_fold_of_ty [%expr Ppx_hash_lib.Std.Hash.create ()] ty (evar ~loc arg)]
+      [%e eapply ~loc (runtime_expr ~loc "get_hash_value")
+            [  hash_fold_of_ty new_state ty (evar ~loc arg) ] ]
   ]
 
 let hash_structure_item_of_td td =

@@ -5,8 +5,8 @@ open Hash.Builtin
 module Check_struct_items_match_sig_items = struct
   module M : sig
     type t0 [@@deriving hash]
-    type 'a t1 [@@deriving hash]
-    type ('a,'b) t2 [@@deriving hash]
+    type _ t1 [@@deriving hash]
+    type (_,_) t2 [@@deriving hash]
   end = struct
     type t0 = int [@@deriving hash]
     type 'a t1 = 'a * int [@@deriving hash]
@@ -176,4 +176,9 @@ module Clash = struct
   type 'hey rigid_hey = Hey of 'hey [@@deriving hash]
   type ('foo,'rigid_foo) foo = Foo of 'foo [@@deriving hash]
   type 'rigid_bar rigid_rigid_bar = Bar [@@deriving hash]
+end
+
+module Type_extension = struct
+  let _ = ([%hash_fold: int list] : [%hash_fold: int list])
+  let _ = ([%hash: int list] : [%hash: int list])
 end

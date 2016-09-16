@@ -1,13 +1,15 @@
 open Core_kernel.Std
 
-module Hash_intf = Ppx_hash_lib.Hash_intf
+module Hash_intf = Base.Hash_intf
 
 module Bench (Hash : Hash_intf.S) = struct
 
   let%bench_module "" [@name_suffix Hash.description] =
     (module struct
 
-      module Ppx_hash_lib = struct module Std = Ppx_hash_lib.Make_std.F(Hash) end
+      module Ppx_hash_lib = struct
+        module Std = struct module Hash = Base.Hash.F(Hash) end
+      end
       module Hash = Ppx_hash_lib.Std.Hash
       open Hash.Builtin
 
@@ -205,6 +207,6 @@ end
 
 let%bench_module "" = (module Bench(Traverse_only))
 let%bench_module "" = (module Bench(Check_initialized_correctly))
-let%bench_module "" = (module Bench(Ppx_hash_lib.Internalhash))
+let%bench_module "" = (module Bench(Base.Hash))
 let%bench_module "" = (module Bench(Siphash_lib.Siphash))
 let%bench_module "" = (module Bench(Ppx_hash_runtime_test.Perfect_hash))
