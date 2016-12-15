@@ -24,8 +24,19 @@ module Labelled_float = struct
 end
 
 let f int64 float =
+  let module Int64 = struct
+    include Int64
+    let sexp_of_t t = Sexp.Atom (sprintf "%Lx" t)
+  end in
   [%test_result:Int64.t] ~expect:int64 (Int64.bits_of_float float);
   float
+
+(* the int64 values of various nan expressions are somehow architecture-specific so
+   instead of writing down the expression we hard-code their exact representations *)
+let f_nan int64 =
+  let float = Int64.float_of_bits int64 in
+  assert (Float.is_nan float);
+  f int64 float
 
 (* hex values to make sure the floats we are testing are actually different *)
 let labelled () = [
@@ -33,9 +44,9 @@ let labelled () = [
   "1."                  , f 0x3ff0000000000000L 1.;
   "-0."                 , f 0x8000000000000000L (-0.);
   "-1."                 , f 0xbff0000000000000L (-1.);
-  "Float.nan"           , f 0x7ff0000000000001L Float.nan;
+  "Float.nan"           , f_nan 0x7ff8000000000001L;
   "Float.infinity"      , f 0x7ff0000000000000L Float.infinity;
-  "-.Float.nan"         , f 0xfff0000000000001L (-.Float.nan);
+  "-.Float.nan"         , f_nan 0xfff8000000000001L;
   "-.Float.infinity"    , f 0xfff0000000000000L (-.Float.infinity);
   "0./.0."              , f 0xfff8000000000000L (0./.0.); (* nan with a different representation *)
 ]

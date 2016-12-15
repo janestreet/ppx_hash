@@ -1,11 +1,13 @@
 open Core_kernel.Std
 
+let words_of_float = if Sys.word_size = 64 then 2 else 3
+
 let check_allocation : expect:int -> (unit -> 'a) -> 'a = fun ~expect f ->
   (* It costs 23 words of allocation to discover the allocation! *)
-  let fudge = 23 in
+  let fudge = 17 + 3 * words_of_float in
   let n0 = Int.of_float ((Gc.stat()).Gc.Stat.minor_words) in
   let n1 = Int.of_float ((Gc.stat()).Gc.Stat.minor_words) in
-  assert (n1 = n0 + fudge);
+  [%test_result: Int.t] ~expect:(n0 + fudge) n1;
   let res = f () in
   let n2 = Int.of_float ((Gc.stat()).Gc.Stat.minor_words) in
   let n = n2 - n1 - fudge in
@@ -109,7 +111,7 @@ end)
 
 module Test_alloc_siphash = Test_alloc(struct
   module Hash = Siphash_lib.Siphash
-  let size_of_state = 5
+  let size_of_state = if Sys.word_size = 64 then 5 else 9
   let seed1 = "1"
   let seed2 = "2"
 end)

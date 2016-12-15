@@ -2,8 +2,6 @@ open Ppx_type_conv.Std
 open Ppx_hash_expander_lib.Std
 open Ppx_core.Std
 
-module Expand = Expand_folding_style
-
 let type_extension name f =
   Context_free.Rule.extension
     (Extension.declare name
