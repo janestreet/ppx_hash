@@ -103,7 +103,7 @@ ppx_hash: functions can not be hashed.
 type fail = < f : int > [@@deriving hash]
 [%%expect{|
 Line _, characters 12-23:
-ppx_hash: unsupported type: < f :int  >
+ppx_hash: unsupported type: < f: int   >
 |}]
 
 type fail = .. [@@deriving hash]

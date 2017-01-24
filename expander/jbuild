@@ -2,5 +2,5 @@
  ((name ppx_hash_expander_lib)
   (public_name ppx_hash.expander)
   (ppx_runtime_libraries (ppx_hash.runtime-lib))
-  (libraries (compiler-libs.common ppx_core))
-  (preprocess metaquot)))
+  (libraries (ppx_core compiler-libs.common))
+  (preprocess (pps (ppx_metaquot)))))

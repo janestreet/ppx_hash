@@ -1,17 +1,5 @@
-open StdLabels
-open Ppx_core.Std
-open Parsetree
+open Ppx_core
 open Ast_builder.Default
-
-[@@@metaloc loc]
-
-module String = struct
-  include String
-  let is_prefix s ~prefix =
-    String.length prefix <= String.length s
-    && String.sub s ~pos:0 ~len:(String.length prefix) = prefix
-  ;;
-end
 
 module Attrs = struct
   let no_hashing =
@@ -61,7 +49,7 @@ let hash_ tn =
 (** renames [x] avoiding collision with [type_name] *)
 let rigid_type_var ~type_name x =
   let prefix = "rigid_" in
-  if x = type_name || String.is_prefix x ~prefix
+  if String.equal x type_name || String.is_prefix x ~prefix
   then prefix ^ x ^ "_of_type_" ^ type_name
   else x
 
@@ -76,7 +64,7 @@ let make_type_rigid ~type_name =
             (match name.txt with
              | Ldot _ | Lapply _ -> ()
              | Lident name ->
-               if (not (name = type_name)) then
+               if (not (String.equal name type_name)) then
                  Location.raise_errorf ~loc:ty.ptyp_loc
                    "ppx_hash: make_type_rigid: unexpected type %S. expected to only find %S"
                    (string_of_core_type ty)
@@ -139,10 +127,10 @@ and hash_variant hsv loc row_fields value =
     | Rtag (cnstr, _attrs, true, _) | Rtag (cnstr, _attrs, _, []) ->
        case ~guard:None
          ~lhs:(ppat_variant ~loc cnstr None)
-         ~rhs:(hash_fold_int hsv ~loc (Btype.hash_variant cnstr))
+         ~rhs:(hash_fold_int hsv ~loc (Ocaml_common.Btype.hash_variant cnstr))
     | Rtag (cnstr, _attrs, false, tp :: _) ->
        let v = "_v" in
-       let hsv = hash_fold_int hsv ~loc (Btype.hash_variant cnstr) in
+       let hsv = hash_fold_int hsv ~loc (Ocaml_common.Btype.hash_variant cnstr) in
        let body = hash_fold_of_ty hsv tp (evar ~loc v) in
        case ~guard:None
          ~lhs:(ppat_variant ~loc cnstr (Some (pvar ~loc v)))
@@ -365,7 +353,7 @@ let str_type_decl ~loc ~path:_ (rec_flag, tds) =
 
 let sig_type_decl ~loc:_ ~path:_ (_rec_flag, tds) =
   List.concat (List.map tds ~f:(fun td ->
-    let monomorphic = (td.ptype_params = []) in
+    let monomorphic = List.is_empty td.ptype_params in
     let definition ~f_type ~f_name =
       let type_ =
         combinator_type_of_type_declaration td ~f:f_type

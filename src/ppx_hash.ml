@@ -1,6 +1,6 @@
 open Ppx_type_conv.Std
 open Ppx_hash_expander_lib.Std
-open Ppx_core.Std
+open Ppx_core
 
 let type_extension name f =
   Context_free.Rule.extension
