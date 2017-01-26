@@ -150,7 +150,7 @@ does treat built-in types & constructors specially, leading to buggy behaviour w
 names are redefined.
 
 A runtime library defines the hash functions for the built-in types & constructors, and is
-put in scope by [open Core.Std] as is done for built-in sexp converters.
+put in scope by [open Core] as is done for built-in sexp converters.
 
   type 'a folder = Hash.t -> 'a -> Hash.t
 
