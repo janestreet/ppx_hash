@@ -1,4 +1,4 @@
-open Core_kernel.Std
+open Core_kernel
 
 let words_of_float = if Sys.word_size = 64 then 2 else 3
 

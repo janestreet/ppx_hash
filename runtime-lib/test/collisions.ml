@@ -1,4 +1,4 @@
-open Core_kernel.Std
+open Core_kernel
 
 module Tests(Hash : Base.Hash_intf.S with type hash_value = int) = struct
 

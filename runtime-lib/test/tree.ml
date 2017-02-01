@@ -1,4 +1,4 @@
-open Core_kernel.Std
+open Core_kernel
 
 (* Demonstrate the behaviour of folding-style hash functions *)
 

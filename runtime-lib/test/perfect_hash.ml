@@ -1,4 +1,4 @@
-open Core_kernel.Std
+open Core_kernel
 
 (* This is not intended as a realistic candidate hash function since it allocates when
    hashing, but as some kind of `perfect' baseline against which other hash functions can

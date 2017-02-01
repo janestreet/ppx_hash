@@ -1,4 +1,4 @@
-open Core_kernel.Std
+open Core_kernel
 
 (* record wrapped in variant *)
 type r = {i:int;s:string} [@@deriving hash]
