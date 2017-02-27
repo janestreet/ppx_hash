@@ -4,3 +4,5 @@
   (ppx_runtime_libraries (ppx_hash.runtime-lib))
   (libraries (ppx_core compiler-libs.common))
   (preprocess (pps (ppx_metaquot)))))
+
+(jbuild_version jane_street)

@@ -7,3 +7,5 @@
               ppx_hash_expander_lib
               ppx_type_conv))
   (preprocess no_preprocessing)))
+
+(jbuild_version jane_street)

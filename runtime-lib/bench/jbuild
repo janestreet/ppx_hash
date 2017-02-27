@@ -3,3 +3,5 @@
   (libraries (core_kernel ppx_hash_lib ppx_hash_runtime_test))))
 
 (alias ((name DEFAULT) (deps (bench.ml.pp))))
+
+(jbuild_version jane_street)
