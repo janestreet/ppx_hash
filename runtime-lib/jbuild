@@ -2,7 +2,6 @@
  ((name ppx_hash_lib)
   (public_name ppx_hash.runtime-lib)
   (libraries (base))
-  (js_of_ocaml ())
   (preprocess (pps (ppx_compare ppx_sexp_conv)))))
 
 (jbuild_version jane_street)
