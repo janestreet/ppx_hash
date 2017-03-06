@@ -1,3 +1,8 @@
+---
+title: ppx_hash
+parent: ../README.md
+---
+
 A ppx writer that generates hash functions from type expressions and definitions.
 
 Syntax

@@ -2,7 +2,7 @@
 (library
  ((name ppx_hash_test)
   (libraries (core_kernel))
-  (preprocess (pps (ppx_jane)))))
+  (preprocess (pps (ppx_jane ppx_driver.runner)))))
 
 ;  (preprocess (pps (ppx_hash ppx_inline_test ppx_assert ppx_sexp_conv)))))
 
