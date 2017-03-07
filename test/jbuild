@@ -10,4 +10,4 @@
         (deps (inline_records.ml.pp
                override_example.ml.pp hash_test.ml.pp record_field_control.ml.pp))))
 
-(jbuild_version jane_street)
+(jbuild_version 1)

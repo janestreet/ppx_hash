@@ -5,4 +5,4 @@
 
 (alias ((name DEFAULT) (deps (bench.ml.pp))))
 
-(jbuild_version jane_street)
+(jbuild_version 1)
