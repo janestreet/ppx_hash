@@ -4,7 +4,7 @@
   (kind ppx_deriver)
   (libraries (ppx_core
               ppx_driver
-              ppx_hash_expander_lib
+              ppx_hash_expander
               ppx_type_conv))
   (preprocess no_preprocessing)))
 

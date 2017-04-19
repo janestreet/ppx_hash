@@ -215,10 +215,11 @@ and hash_fold_of_ty_fun ~type_constraint ty =
     else
       pvar ~loc arg
   in
-  [%expr
+  eta_reduce_if_possible
+    [%expr
       fun [%p pvar ~loc hsv] [%p maybe_constrained_arg] ->
         [%e hash_fold_of_ty (evar ~loc hsv) ty (evar ~loc arg) ]
-  ]
+    ]
 
 and hash_fold_of_record hsv _loc lds value =
   let is_evar = function
@@ -292,7 +293,7 @@ let hash_structure_item_of_td td =
     value_binding ~loc ~pat ~expr
   ]
 
-let hash_fold_structure_item_of_td td =
+let hash_fold_structure_item_of_td td ~rec_flag =
   let loc = td.ptype_loc in
   let hsv = "hsv" in
   let arg = "arg" in
@@ -324,7 +325,7 @@ let hash_fold_structure_item_of_td td =
   let bnd = pvar ~loc (hash_fold_ td.ptype_name.txt) in
   let scheme = combinator_type_of_type_declaration td ~f:hash_fold_type in
   let pat = ppat_constraint ~loc bnd (ptyp_poly ~loc vars scheme) in
-  let expr = eabstract ~loc patts body in
+  let expr = eta_reduce_if_possible_and_nonrec ~rec_flag (eabstract ~loc patts body) in
   let use_rigid_variables = match td.ptype_kind with | Ptype_variant _ -> true | _ -> false in
   let expr =
     if use_rigid_variables then
@@ -339,11 +340,11 @@ let hash_fold_structure_item_of_td td =
 let str_type_decl ~loc ~path:_ (rec_flag, tds) =
   let rec_flag = really_recursive rec_flag tds in
   let hash_fold_definitions =
-    let bindings = List.map ~f:hash_fold_structure_item_of_td tds in
+    let bindings = List.map ~f:(hash_fold_structure_item_of_td ~rec_flag) tds in
     pstr_value ~loc rec_flag bindings
   in
   let hash_definition_bindings =
-    List.concat (List.map ~f:hash_structure_item_of_td tds)
+    List.concat_map ~f:hash_structure_item_of_td tds
   in
   match hash_definition_bindings with
   | [] -> [ hash_fold_definitions ]
