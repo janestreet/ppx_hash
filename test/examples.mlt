@@ -97,25 +97,25 @@ Hint: Did you mean hash_fold_int?
 type fail = int -> int [@@deriving hash]
 [%%expect{|
 Line _, characters 12-22:
-ppx_hash: functions can not be hashed.
+Error: ppx_hash: functions can not be hashed.
 |}]
 
 type fail = < f : int > [@@deriving hash]
 [%%expect{|
 Line _, characters 12-23:
-ppx_hash: unsupported type: < f: int   >
+Error: ppx_hash: unsupported type: < f: int   >
 |}]
 
 type fail = .. [@@deriving hash]
 [%%expect{|
 Line _, characters 0-32:
-ppx_hash: open types are not supported
+Error: ppx_hash: open types are not supported
 |}]
 
 type fail = [> `Foo ] [@@deriving hash]
 [%%expect{|
 Line _, characters 12-21:
-ppx_hash: cannot hash open polymorphic variant types
+Error: ppx_hash: cannot hash open polymorphic variant types
 |}]
 
 type fail = {
@@ -124,7 +124,7 @@ type fail = {
 } [@@deriving hash]
 [%%expect{|
 Line _, characters 2-18:
-ppx_hash: require [@no_hashing] on mutable record field
+Error: ppx_hash: require [@no_hashing] on mutable record field
 |}]
 
 module type Type_extension = sig
