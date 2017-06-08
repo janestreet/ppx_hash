@@ -15,7 +15,7 @@ module Barbins_example = struct
         { x : X.t
         ; y : Y.y
         ; z : Z.t
-        ; mutable cached : int option [@no_hashing]
+        ; mutable cached : int option [@hash.ignore]
         }
       [@@deriving hash]
     end

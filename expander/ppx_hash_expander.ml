@@ -2,16 +2,40 @@ open Ppx_core
 open Ast_builder.Default
 
 module Attrs = struct
+  let ignore =
+    Attribute.declare "hash.ignore"
+      Attribute.Context.label_declaration
+      Ast_pattern.(pstr nil)
+      ()
+  ;;
+
   let no_hashing =
     Attribute.declare "hash.no_hashing"
       Attribute.Context.label_declaration
       Ast_pattern.(pstr nil)
       ()
+  ;;
 end
 
 let str_attributes = [
+  Attribute.T Attrs.ignore;
   Attribute.T Attrs.no_hashing;
 ]
+
+let should_ignore_label_declaration ld loc =
+  let warning = "[@hash.no_hashing] is deprecated.  Use [@hash.ignore]." in
+  let should_ignore =
+    if List.exists ~f:(fun attr -> Option.is_some (Attribute.get attr ld))
+         [ Attrs.ignore
+         ; Ppx_compare_expander.Attrs.ignore
+         ]
+    then `ignore
+    else `incorporate
+  in
+  match Attribute.get Attrs.no_hashing ld with
+  | None -> should_ignore, None
+  | Some () -> `ignore, Some (attribute_of_warning loc warning)
+;;
 
 (* Generate code to compute hash values of type [t] in folding style, following the structure of
    the type.  Incorporate all structure when computing hash values, to maximise hash
@@ -59,6 +83,8 @@ module Hsv_expr : sig
 
   (* [value_binding]s should not bind or use [hsv] *)
   val pexp_let : loc:location -> rec_flag -> value_binding list -> t -> t
+
+  val with_attributes : f:(attribute list -> attribute list) -> t -> t
 end = struct
   type t = expression
 
@@ -82,6 +108,8 @@ end = struct
   let pexp_match = pexp_match
   let case = case
   let pexp_let = pexp_let
+  let with_attributes ~f x =
+    { x with pexp_attributes = f x.pexp_attributes }
 end
 
 let hash_fold_int ~loc i : Hsv_expr.t =
@@ -197,13 +225,13 @@ and hash_variant ~loc row_fields value =
          type 'a id = 'a [@@deriving hash]
          type t = [ `a | [ `b ] id ] [@@deriving hash]
          doesn't compile: Also see the "sadly" note in: ppx_compare_expander.ml *)
-       let v = "_v" in
-       Hsv_expr.case ~guard:None
-         ~lhs:(ppat_alias ~loc (ppat_type ~loc id) (Located.mk ~loc v))
-         ~rhs:(hash_applied ty (evar ~loc v))
+      let v = "_v" in
+      Hsv_expr.case ~guard:None
+        ~lhs:(ppat_alias ~loc (ppat_type ~loc id) (Located.mk ~loc v))
+        ~rhs:(hash_applied ty (evar ~loc v))
     | Rinherit ty ->
-       let s = string_of_core_type ty in
-       Location.raise_errorf ~loc "ppx_hash: impossible variant case: %s" s
+      let s = string_of_core_type ty in
+      Location.raise_errorf ~loc "ppx_hash: impossible variant case: %s" s
   in
   Hsv_expr.pexp_match ~loc value (List.map ~f:map row_fields)
 
@@ -270,12 +298,12 @@ and hash_fold_of_ty ty value =
       ~hash_fold_t:(evar ~loc (tp_name name))
       ~t:value
   | Ptyp_arrow _ ->
-     Location.raise_errorf ~loc "ppx_hash: functions can not be hashed."
+    Location.raise_errorf ~loc "ppx_hash: functions can not be hashed."
   | Ptyp_variant (row_fields, Closed, None) ->
     hash_variant ~loc row_fields value
   | _ ->
-     let s = string_of_core_type ty in
-     Location.raise_errorf ~loc "ppx_hash: unsupported type: %s" s
+    let s = string_of_core_type ty in
+    Location.raise_errorf ~loc "ppx_hash: unsupported type: %s" s
 
 and hash_fold_of_ty_fun ~type_constraint ty =
   let loc = ty.ptyp_loc in
@@ -303,27 +331,31 @@ and hash_fold_of_record ~loc lds value =
   in
   assert (is_evar value);
   List.fold_left lds ~init:(Hsv_expr.identity ~loc) ~f:(fun hsv ld ->
-    Hsv_expr.compose ~loc
-      hsv
-      (let loc = ld.pld_loc in
-       let label = Located.map lident ld.pld_name in
-       let field_handling =
-         match
-           ld.pld_mutable,
-           Attribute.get Attrs.no_hashing ld
-         with
-         | Mutable, None
-           -> `error "require [@no_hashing] on mutable record field"
-         | (Mutable | Immutable), Some () ->
-           `skip
-         | Immutable, None ->
-           `incorporate
-       in
-       match field_handling with
-       | `error s -> Location.raise_errorf ~loc "ppx_hash: %s" s
-       | `incorporate -> hash_fold_of_ty ld.pld_type (pexp_field ~loc value label)
-       | `skip -> Hsv_expr.identity ~loc
-      ))
+    Hsv_expr.compose ~loc hsv (
+      let loc = ld.pld_loc in
+      let label = Located.map lident ld.pld_name in
+      let should_ignore, should_warn = should_ignore_label_declaration ld loc in
+      let field_handling =
+        match ld.pld_mutable, should_ignore with
+        | Mutable, `incorporate
+          -> `error "require [@hash.ignore] or [@compare.ignore] on mutable record field"
+        | (Mutable | Immutable), `ignore ->
+          `ignore
+        | Immutable, `incorporate ->
+          `incorporate
+      in
+      let hsv =
+        match field_handling with
+        | `error s -> Location.raise_errorf ~loc "ppx_hash: %s" s
+        | `incorporate ->
+          hash_fold_of_ty ld.pld_type (pexp_field ~loc value label)
+        | `ignore -> Hsv_expr.identity ~loc
+      in
+      match should_warn with
+      | None -> hsv
+      | Some attribute ->
+        Hsv_expr.with_attributes ~f:(fun attributes -> attribute :: attributes) hsv
+    ))
 
 let hash_fold_of_abstract ~loc type_name value =
   let str =
@@ -363,18 +395,18 @@ let hash_structure_item_of_td td =
   match td.ptype_params with
   | _::_ -> []
   | [] -> [
-    let bnd = pvar ~loc (hash_ td.ptype_name.txt) in
-    let typ = combinator_type_of_type_declaration td ~f:hash_type in
-    let pat = ppat_constraint ~loc bnd typ in
-    let expr =
-      hash_of_ty_fun ~type_constraint:false
-        { ptyp_loc = loc;
-          ptyp_attributes = [];
-          ptyp_desc =
-            Ptyp_constr ({ loc; txt = Lident td.ptype_name.txt }, []); }
-    in
-    value_binding ~loc ~pat ~expr
-  ]
+      let bnd = pvar ~loc (hash_ td.ptype_name.txt) in
+      let typ = combinator_type_of_type_declaration td ~f:hash_type in
+      let pat = ppat_constraint ~loc bnd typ in
+      let expr =
+        hash_of_ty_fun ~type_constraint:false
+          { ptyp_loc = loc;
+            ptyp_attributes = [];
+            ptyp_desc =
+              Ptyp_constr ({ loc; txt = Lident td.ptype_name.txt }, []); }
+      in
+      value_binding ~loc ~pat ~expr
+    ]
 
 let hash_fold_structure_item_of_td td ~rec_flag =
   let loc = td.ptype_loc in
@@ -385,20 +417,20 @@ let hash_fold_structure_item_of_td td ~rec_flag =
     | Ptype_variant cds -> hash_sum ~loc cds v
     | Ptype_record  lds -> hash_fold_of_record ~loc lds v
     | Ptype_open ->
-       Location.raise_errorf ~loc
-         "ppx_hash: open types are not supported"
+      Location.raise_errorf ~loc
+        "ppx_hash: open types are not supported"
     | Ptype_abstract ->
-       match td.ptype_manifest with
-       | None -> hash_fold_of_abstract ~loc td.ptype_name.txt v
-       | Some ty ->
-          match ty.ptyp_desc with
-          | Ptyp_variant (_, Open, _) | Ptyp_variant (_, Closed, Some (_ :: _)) ->
-             Location.raise_errorf ~loc:ty.ptyp_loc
-               "ppx_hash: cannot hash open polymorphic variant types"
-          | Ptyp_variant (row_fields, _, _) ->
-            hash_variant ~loc row_fields v
-          | _ ->
-             hash_fold_of_ty ty v
+      match td.ptype_manifest with
+      | None -> hash_fold_of_abstract ~loc td.ptype_name.txt v
+      | Some ty ->
+        match ty.ptyp_desc with
+        | Ptyp_variant (_, Open, _) | Ptyp_variant (_, Closed, Some (_ :: _)) ->
+          Location.raise_errorf ~loc:ty.ptyp_loc
+            "ppx_hash: cannot hash open polymorphic variant types"
+        | Ptyp_variant (row_fields, _, _) ->
+          hash_variant ~loc row_fields v
+        | _ ->
+          hash_fold_of_ty ty v
   in
   let vars = List.map td.ptype_params ~f:(fun p -> (get_type_param_name p).txt) in
   let extra_names = List.map vars ~f:tp_name in
@@ -423,7 +455,17 @@ let hash_fold_structure_item_of_td td ~rec_flag =
   value_binding ~loc ~pat ~expr
 
 let str_type_decl ~loc ~path:_ (rec_flag, tds) =
-  let rec_flag = really_recursive rec_flag tds in
+  let rec_flag =
+    (object
+      inherit type_is_recursive rec_flag tds as super
+
+      method! label_declaration ld =
+        match fst (should_ignore_label_declaration ld ld.pld_loc) with
+        | `ignore -> ()
+        | `incorporate -> super#label_declaration ld
+
+    end)#go ()
+  in
   let hash_fold_definitions =
     let bindings = List.map ~f:(hash_fold_structure_item_of_td ~rec_flag) tds in
     pstr_value ~loc rec_flag bindings

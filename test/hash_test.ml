@@ -79,7 +79,7 @@ module M16 = struct type t = int list [@@deriving hash] end
 module M17 = struct type t = {
   s : string;
   b : float array_frozen list;
-  mutable c : (int * int64 option); [@no_hashing]
+  mutable c : (int * int64 option); [@hash.ignore]
 } [@@deriving hash]
 end
 

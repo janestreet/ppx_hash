@@ -118,13 +118,28 @@ Line _, characters 12-21:
 Error: ppx_hash: cannot hash open polymorphic variant types
 |}]
 
-type fail = {
-  mutable u : int;
-  s : string;
-} [@@deriving hash]
+type fail =
+  { mutable u : int
+  ; s : string
+  }
+[@@deriving hash]
 [%%expect{|
-Line _, characters 2-18:
-Error: ppx_hash: require [@no_hashing] on mutable record field
+Line _, characters 4-23:
+Error: ppx_hash: require [@hash.ignore] or [@compare.ignore] on mutable record field
+|}]
+
+type unhashable
+
+type ok =
+  { mutable u : unhashable [@compare.ignore]
+  ; s : string
+  }
+[@@deriving hash]
+[%%expect{|
+type unhashable
+type ok = { mutable u : unhashable; s : string; }
+val hash_fold_ok : Hash.state -> ok -> Hash.state = <fun>
+val hash_ok : ok -> int = <fun>
 |}]
 
 module type Type_extension = sig
@@ -139,4 +154,12 @@ module type Type_extension =
     val g :
       (Hash.state -> 'a -> Hash.state) -> Hash.state -> 'b -> Hash.state
   end
+|}]
+
+type warn = { foo : string [@no_hashing] } [@@deriving hash]
+[%%expect {|
+Line _, characters 14-40:
+Warning 22: [@hash.no_hashing] is deprecated.  Use [@hash.ignore].
+Line _:
+Error: Some fatal warnings were triggered (1 occurrences)
 |}]

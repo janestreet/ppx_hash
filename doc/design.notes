@@ -127,11 +127,12 @@ for the element type (nothing new here).
 
 (5) Special support for record fields:
 
-Record fields can be annotated with [@no_hashing] so that they are not incorporated into
-the computed hash value. In the case of mutable fields, there must be such an annotation.
+Record fields can be annotated with [@hash.ignore] so that they are not
+incorporated into the computed hash value. In the case of mutable fields, there
+must be such an annotation.
 
     type t = {
-      mutable s : string; [@no_hashing]
+      mutable s : string; [@hash.ignore]
       i : int;
     } [@@deriving hash]
 
