@@ -28,9 +28,9 @@ Where `Hash` is `Ppx_hash_lib.Std.Hash`.
 The generated function follows the structure of the type; allowing user overrides at every
 level. This is in contrast to ocaml's builtin polymorphic hashing `Hashtbl.hash` which
 ignores user overrides.
-
-Also generated is a direct hash-function `hash : t -> Hash.hash_value`, as a wrapper
-around the hash-fold function.. (named `hash_<T>` when <T> != "t")
+  
+Also generated is a direct hash-function `hash : t ->
+Hash.hash_value`. This function will be named `hash_<T>` when <T> != "t".
 
 The direct hash function is the one suitable for `Hashable.Make`.
 

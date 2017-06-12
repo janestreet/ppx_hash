@@ -370,7 +370,17 @@ let hash_fold_of_abstract ~loc type_name value =
       failwith [%e estring ~loc str]
     ])
 
-let hash_of_ty_fun ~type_constraint ty =
+(** this does not change behavior (keeps the expression side-effect if any),
+    but it can make the compiler happy when the expression occurs on the rhs
+    of an [let rec] binding. *)
+let eta_expand ~loc f =
+  [%expr let func = [%e f] in fun x -> func x]
+
+let recognize_simple_type ty = match ty.ptyp_desc with
+  | Ptyp_constr(lident, []) -> Some lident
+  | _ -> None
+
+let hash_of_ty_fun ~special_case_simple_types ~type_constraint ty =
   let loc = ty.ptyp_loc in
   let arg = "arg" in
   let maybe_constrained_arg =
@@ -379,16 +389,20 @@ let hash_of_ty_fun ~type_constraint ty =
     else
       pvar ~loc arg
   in
-  let hsv_pat, hsv_expr =
-    Hsv_expr.to_expression ~loc
-      (hash_fold_of_ty ty (evar ~loc arg))
-  in
-  [%expr
-    fun [%p maybe_constrained_arg] ->
-      Ppx_hash_lib.Std.Hash.get_hash_value (
-        let [%p hsv_pat] = Ppx_hash_lib.Std.Hash.create () in
-        [%e hsv_expr])
-  ]
+  match recognize_simple_type ty with
+  | Some lident when special_case_simple_types ->
+    unapplied_type_constr_conv ~loc lident ~f:hash_
+  | _ ->
+    let hsv_pat, hsv_expr =
+      Hsv_expr.to_expression ~loc
+        (hash_fold_of_ty ty (evar ~loc arg))
+    in
+    [%expr
+      fun [%p maybe_constrained_arg] ->
+        Ppx_hash_lib.Std.Hash.get_hash_value (
+          let [%p hsv_pat] = Ppx_hash_lib.Std.Hash.create () in
+          [%e hsv_expr])
+    ]
 
 let hash_structure_item_of_td td =
   let loc = td.ptype_loc in
@@ -398,14 +412,24 @@ let hash_structure_item_of_td td =
       let bnd = pvar ~loc (hash_ td.ptype_name.txt) in
       let typ = combinator_type_of_type_declaration td ~f:hash_type in
       let pat = ppat_constraint ~loc bnd typ in
-      let expr =
-        hash_of_ty_fun ~type_constraint:false
-          { ptyp_loc = loc;
-            ptyp_attributes = [];
-            ptyp_desc =
-              Ptyp_constr ({ loc; txt = Lident td.ptype_name.txt }, []); }
+      let expected_scope, expr =
+        let is_simple_type ty = match recognize_simple_type ty with
+          | Some _ -> true
+          | None -> false
+        in
+        match td.ptype_kind, td.ptype_manifest with
+        | Ptype_abstract, Some ty when is_simple_type ty ->
+          `uses_rhs,
+          (hash_of_ty_fun ~special_case_simple_types:true ~type_constraint:false ty)
+        | _ ->
+          `uses_hash_fold_t_being_defined,
+          (hash_of_ty_fun ~special_case_simple_types:false ~type_constraint:false
+             { ptyp_loc = loc;
+               ptyp_attributes = [];
+               ptyp_desc =
+                 Ptyp_constr ({ loc; txt = Lident td.ptype_name.txt }, []); })
       in
-      value_binding ~loc ~pat ~expr
+      expected_scope, value_binding ~loc ~pat ~expr:(eta_expand ~loc expr)
     ]
 
 let hash_fold_structure_item_of_td td ~rec_flag =
@@ -454,6 +478,12 @@ let hash_fold_structure_item_of_td td ~rec_flag =
   in
   value_binding ~loc ~pat ~expr
 
+let pstr_value ~loc rec_flag bindings = match bindings with
+  | [] -> []
+  | nonempty_bindings ->
+    (* [pstr_value] with zero bindings is invalid *)
+    [ pstr_value ~loc rec_flag nonempty_bindings ]
+
 let str_type_decl ~loc ~path:_ (rec_flag, tds) =
   let rec_flag =
     (object
@@ -466,18 +496,28 @@ let str_type_decl ~loc ~path:_ (rec_flag, tds) =
 
     end)#go ()
   in
-  let hash_fold_definitions =
-    let bindings = List.map ~f:(hash_fold_structure_item_of_td ~rec_flag) tds in
-    pstr_value ~loc rec_flag bindings
+  let hash_fold_bindings = List.map ~f:(hash_fold_structure_item_of_td ~rec_flag) tds in
+  let hash_bindings =
+    List.concat (List.map ~f:hash_structure_item_of_td tds)
   in
-  let hash_definition_bindings =
-    List.concat_map ~f:hash_structure_item_of_td tds
-  in
-  match hash_definition_bindings with
-  | [] -> [ hash_fold_definitions ]
-  | bindings ->
-    let hash_definitions = pstr_value ~loc Nonrecursive bindings in
-    [ hash_fold_definitions; hash_definitions ]
+  match rec_flag with
+  | Recursive ->
+    (* if we wanted to maximize the scope hygiene here this would be, in this order:
+       - recursive group of [hash_fold]
+       - nonrecursive group of [hash] that are [`uses_hash_fold_t_being_defined]
+       - recursive group of [hash] that are [`uses_rhs]
+       but fighting the "unused rec flag" warning is just way too hard *)
+    pstr_value ~loc Recursive (hash_fold_bindings @ List.map ~f:snd hash_bindings)
+  | Nonrecursive ->
+    let rely_on_hash_fold_t, use_rhs =
+      List.partition_map hash_bindings ~f:(function
+        | `uses_hash_fold_t_being_defined, binding ->
+          `Fst binding
+        | `uses_rhs, binding ->
+          `Snd binding)
+    in
+    pstr_value ~loc Nonrecursive (hash_fold_bindings @ use_rhs) @
+    pstr_value ~loc Nonrecursive rely_on_hash_fold_t
 
 let sig_type_decl ~loc:_ ~path:_ (_rec_flag, tds) =
   List.concat (List.map tds ~f:(fun td ->
@@ -501,4 +541,4 @@ let sig_type_decl ~loc:_ ~path:_ (_rec_flag, tds) =
     ]))
 
 let hash_fold_core_type ty = hash_fold_of_ty_fun ~type_constraint:true ty
-let hash_core_type ty = hash_of_ty_fun ~type_constraint:true ty
+let hash_core_type ty = hash_of_ty_fun ~special_case_simple_types:true ~type_constraint:true ty

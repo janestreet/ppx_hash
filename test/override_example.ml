@@ -34,16 +34,16 @@ module Barbins_example = struct
     module Memoized = struct
       include T_type
 
+      let hash t =
+        match t.cached with
+        | Some x -> x
+        | None ->
+          let cached = T.hash t in (* dont use state *)
+          t.cached <- Some cached;
+          cached
+
       let hash_fold_t (state:Hash.state) (t : t) =
-        let cached =
-          match t.cached with
-          | Some x -> x
-          | None ->
-             let cached = T.hash t in (* dont use state *)
-             t.cached <- Some cached;
-             cached
-        in
-        hash_fold_int state cached (* use state *)
+        hash_fold_int state (hash t) (* use state *)
 
     end
 

@@ -33,6 +33,7 @@ end
 module String = struct
   include String
   let hash_fold_t = hash_fold_string
+  let hash = hash_string
 end
 
 let hash = `Should_refer_to_Hashtbl_hash_explicitly
@@ -163,9 +164,9 @@ end
 
 module Gadt = struct
   type 'a t =
-  | I : int -> int t
-  | F : float -> float t
-  | R : int t * string t -> bool t
+    | I : int -> int t
+    | F : float -> float t
+    | R : int t * string t -> bool t
   [@@deriving hash]
 end
 
@@ -182,10 +183,18 @@ module Type_extension = struct
   let _ = ([%hash: int list] : [%hash: int list])
 end
 
+module Recursion_with_aliases = struct
+  type a = A of c
+  and b = a
+  and c = b
+  [@@deriving hash]
+end
+
 module Nested_tuples = struct
   type a = int * (string * bool) [@@deriving_inline hash]
 
   let _ = fun (_ : a)  -> ()
+
 
   let (hash_fold_a :
          Ppx_hash_lib.Std.Hash.state -> a -> Ppx_hash_lib.Std.Hash.state) =
@@ -202,12 +211,11 @@ module Nested_tuples = struct
   let _ = hash_fold_a
 
   let (hash_a : a -> Ppx_hash_lib.Std.Hash.hash_value) =
-    fun arg  ->
+    let func arg =
       Ppx_hash_lib.Std.Hash.get_hash_value
         (let hsv = Ppx_hash_lib.Std.Hash.create ()  in hash_fold_a hsv arg)
-
-
+    in
+    fun x  -> func x
   let _ = hash_a
-
   [@@@deriving.end]
 end

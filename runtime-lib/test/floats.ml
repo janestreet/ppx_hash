@@ -1,8 +1,5 @@
 open Core_kernel
 
-open Ppx_hash_lib.Std
-open Hash.Builtin
-
 let (-->) a b = not a || b
 
 let check_safety ~hash ~compare ~sexp_of_t (a,b) =
