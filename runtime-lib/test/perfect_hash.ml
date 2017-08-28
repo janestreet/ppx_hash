@@ -71,7 +71,7 @@ let alloc () = []
 let reset ?seed:_ _ = []
 let get_hash_value t =
   Caml.Int64.to_int (Int64.of_string (
-    "0x" ^ String.prefix (Digest.to_hex (Digest.string (
+    "0x" ^ String.prefix (Md5.to_hex (Md5.digest_string (
       Sexplib.Sexp.to_string (State.sexp_of_t t)))) 16))
 
 module For_tests = struct
