@@ -1,6 +1,7 @@
 (library
  ((name siphash_lib)
   (c_names (siphash))
+  (flags (:standard -safe-string))
   (libraries (base))
   (preprocess (pps ( ppx_driver.runner)))))
 

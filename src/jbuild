@@ -2,6 +2,7 @@
  ((name ppx_hash)
   (public_name ppx_hash)
   (kind ppx_deriver)
+  (flags (:standard -safe-string))
   (libraries (ppx_core
               ppx_driver
               ppx_hash_expander
