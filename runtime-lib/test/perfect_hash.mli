@@ -6,4 +6,4 @@ module State : sig
   include Sexpable.S with type t := t
 end
 
-include Base.Hash_intf.S with type hash_value = int and type seed = unit with type state = State.t
+include Base.Hash.S with type hash_value = int and type seed = unit with type state = State.t

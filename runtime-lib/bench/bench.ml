@@ -1,8 +1,8 @@
 open Core_kernel
 
-module Hash_intf = Base.Hash_intf
+module Hash = Base.Hash
 
-module Bench (Hash : Hash_intf.S) = struct
+module Bench (Hash : Hash.S) = struct
 
   let%bench_module "" [@name_suffix Hash.description] =
     (module struct
@@ -119,7 +119,7 @@ module Bench_hashtbl_hash = struct
 
 end
 
-module Traverse_only : Hash_intf.S = struct
+module Traverse_only : Hash.S = struct
   let description = "Traverse_only"
   type hash_value = int
   type state = unit
@@ -138,7 +138,7 @@ module Traverse_only : Hash_intf.S = struct
   end
 
 (* This module enforces the rules described in ../hash_intf.ml *)
-module Check_initialized_correctly : Hash_intf.S = struct
+module Check_initialized_correctly : Hash.S = struct
 
   let description = "Check_initialized_correctly"
 

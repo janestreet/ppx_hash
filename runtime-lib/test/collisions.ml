@@ -1,6 +1,6 @@
 open Core_kernel
 
-module Tests(Hash : Base.Hash_intf.S with type hash_value = int) = struct
+module Tests(Hash : Base.Hash.S with type hash_value = int) = struct
 
   module Ppx_hash_lib = struct
     module Std = struct module Hash = Base.Hash.F(Hash) end
