@@ -456,8 +456,8 @@ let hash_fold_structure_item_of_td td ~rec_flag =
         | _ ->
           hash_fold_of_ty ty v
   in
-  let vars = List.map td.ptype_params ~f:(fun p -> (get_type_param_name p).txt) in
-  let extra_names = List.map vars ~f:tp_name in
+  let vars = List.map td.ptype_params ~f:get_type_param_name in
+  let extra_names = List.map vars ~f:(fun x -> tp_name x.txt) in
   let hsv_pat, hsv_expr = Hsv_expr.to_expression ~loc body in
   let patts = List.map extra_names ~f:(pvar ~loc) @ [ hsv_pat; pvar ~loc arg ] in
   let bnd = pvar ~loc (hash_fold_ td.ptype_name.txt) in
@@ -471,7 +471,8 @@ let hash_fold_structure_item_of_td td ~rec_flag =
   let expr =
     if use_rigid_variables then
       let type_name = td.ptype_name.txt in
-      List.fold_right vars ~f:(fun s -> pexp_newtype ~loc (rigid_type_var ~type_name s))
+      List.fold_right vars ~f:(fun s ->
+        pexp_newtype ~loc { txt = rigid_type_var ~type_name s.txt; loc = s.loc; })
         ~init:(pexp_constraint ~loc expr (make_type_rigid ~type_name scheme))
     else
       expr
