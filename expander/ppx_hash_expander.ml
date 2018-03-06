@@ -507,7 +507,7 @@ let str_type_decl ~loc ~path:_ (rec_flag, tds) =
        - recursive group of [hash_fold]
        - nonrecursive group of [hash] that are [`uses_hash_fold_t_being_defined]
        - recursive group of [hash] that are [`uses_rhs]
-       but fighting the "unused rec flag" warning is just way too hard *)
+         but fighting the "unused rec flag" warning is just way too hard *)
     pstr_value ~loc Recursive (hash_fold_bindings @ List.map ~f:snd hash_bindings)
   | Nonrecursive ->
     let rely_on_hash_fold_t, use_rhs =
