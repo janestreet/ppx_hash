@@ -1,4 +1,4 @@
-open Ppx_core
+open Ppxlib
 
 val hash_fold_type : loc:Location.t -> core_type -> core_type
 val hash_fold_core_type : core_type -> expression

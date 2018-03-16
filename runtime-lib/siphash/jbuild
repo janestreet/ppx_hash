@@ -3,7 +3,7 @@
   (c_names (siphash))
   (flags (:standard -safe-string))
   (libraries (base))
-  (preprocess (pps ( ppx_driver.runner)))))
+  (preprocess (pps ( ppxlib.runner)))))
 
 
 (jbuild_version 1)

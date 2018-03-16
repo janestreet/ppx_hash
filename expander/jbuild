@@ -3,8 +3,8 @@
   (public_name ppx_hash.expander)
   (ppx_runtime_libraries (ppx_hash.runtime-lib))
   (flags (:standard -safe-string))
-  (libraries (ppx_compare.expander ppx_core compiler-libs.common))
-  (preprocess (pps (ppx_metaquot ppx_driver.runner)))))
+  (libraries (ppx_compare.expander base ppxlib compiler-libs.common))
+  (preprocess (pps (ppxlib.metaquot ppxlib.runner)))))
 
 
 (jbuild_version 1)
