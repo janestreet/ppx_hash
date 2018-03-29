@@ -159,7 +159,5 @@ module type Type_extension =
 type warn = { foo : string [@no_hashing] } [@@deriving hash]
 [%%expect {|
 Line _, characters 14-40:
-Warning 22: [@hash.no_hashing] is deprecated.  Use [@hash.ignore].
-Line _:
-Error: Some fatal warnings were triggered (1 occurrences)
+Error (Warning 22): [@hash.no_hashing] is deprecated.  Use [@hash.ignore].
 |}]
