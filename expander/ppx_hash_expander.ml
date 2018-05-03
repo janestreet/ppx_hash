@@ -207,11 +207,11 @@ and hash_fold_of_tuple ~loc tys value =
 
 and hash_variant ~loc row_fields value =
   let map = function
-    | Rtag (cnstr, _attrs, true, _) | Rtag (cnstr, _attrs, _, []) ->
+    | Rtag ({ txt = cnstr; _ }, _attrs, true, _) | Rtag ({ txt = cnstr; _ }, _attrs, _, []) ->
       Hsv_expr.case ~guard:None
         ~lhs:(ppat_variant ~loc cnstr None)
         ~rhs:(hash_fold_int ~loc (Ocaml_common.Btype.hash_variant cnstr))
-    | Rtag (cnstr, _attrs, false, tp :: _) ->
+    | Rtag ({ txt = cnstr; _ }, _attrs, false, tp :: _) ->
       let v = "_v" in
       let body =
         Hsv_expr.compose ~loc
