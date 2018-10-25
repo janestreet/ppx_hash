@@ -28,7 +28,7 @@ let should_ignore_label_declaration ld loc =
   let should_ignore =
     if List.exists ~f:(fun attr -> Option.is_some (Attribute.get attr ld))
          [ Attrs.ignore
-         ; Ppx_compare_expander.Attrs.ignore
+         ; Ppx_compare_expander.Compare.Attrs.ignore
          ]
     then `ignore
     else `incorporate
