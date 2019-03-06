@@ -487,6 +487,7 @@ let pstr_value ~loc rec_flag bindings = match bindings with
     [ pstr_value ~loc rec_flag nonempty_bindings ]
 
 let str_type_decl ~loc ~path:_ (rec_flag, tds) =
+  let tds = List.map tds ~f:name_type_params_in_td in
   let rec_flag =
     (object
       inherit type_is_recursive rec_flag tds as super

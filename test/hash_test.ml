@@ -193,13 +193,13 @@ end
 module Nested_tuples = struct
   type a = int * (string * bool) [@@deriving_inline hash]
 
-  
-let _ = fun (_ : a)  -> ()
-  
-  
-let (hash_fold_a :
-  Ppx_hash_lib.Std.Hash.state -> a -> Ppx_hash_lib.Std.Hash.state) =
-  fun hsv  ->
+
+  let _ = fun (_ : a)  -> ()
+
+
+  let (hash_fold_a :
+         Ppx_hash_lib.Std.Hash.state -> a -> Ppx_hash_lib.Std.Hash.state) =
+    fun hsv  ->
     fun arg  ->
       let (e0,e1) = arg  in
       let hsv = hash_fold_int hsv e0  in
@@ -209,13 +209,23 @@ let (hash_fold_a :
         let hsv = hash_fold_bool hsv e1  in hsv  in
       hsv
 
-let _ = hash_fold_a
-let (hash_a : a -> Ppx_hash_lib.Std.Hash.hash_value) =
-  let func arg =
-    Ppx_hash_lib.Std.Hash.get_hash_value
-      (let hsv = Ppx_hash_lib.Std.Hash.create ()  in hash_fold_a hsv arg)
-     in
-  fun x  -> func x
-let _ = hash_a
-[@@@deriving.end]
+  let _ = hash_fold_a
+  let (hash_a : a -> Ppx_hash_lib.Std.Hash.hash_value) =
+    let func arg =
+      Ppx_hash_lib.Std.Hash.get_hash_value
+        (let hsv = Ppx_hash_lib.Std.Hash.create ()  in hash_fold_a hsv arg)
+    in
+    fun x  -> func x
+  let _ = hash_a
+  [@@@deriving.end]
+end
+
+module Wildcard : sig
+  type _ transparent = int [@@deriving hash]
+
+  type _ opaque [@@deriving hash]
+end = struct
+  type _ transparent = int [@@deriving hash]
+
+  type 'a opaque = 'a option [@@deriving hash]
 end
