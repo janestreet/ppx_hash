@@ -10,7 +10,8 @@ end
 module type Interface_for_types_named_t =
   sig
     type t
-    val hash_fold_t : Hash.state -> t -> Hash.state
+    val hash_fold_t :
+      Base_internalhash_types.state -> t -> Base_internalhash_types.state
     val hash : t -> int
   end
 |}]
@@ -22,7 +23,9 @@ end
 module type Interface_for_types_named_other_than_t =
   sig
     type my_type
-    val hash_fold_my_type : Hash.state -> my_type -> Hash.state
+    val hash_fold_my_type :
+      Base_internalhash_types.state ->
+      my_type -> Base_internalhash_types.state
     val hash_my_type : my_type -> int
   end
 |}]
@@ -35,8 +38,9 @@ module type Interface_for_poly_types =
   sig
     type 'a my_container
     val hash_fold_my_container :
-      (Hash.state -> 'a -> Hash.state) ->
-      Hash.state -> 'a my_container -> Hash.state
+      (Base_internalhash_types.state -> 'a -> Base_internalhash_types.state) ->
+      Base_internalhash_types.state ->
+      'a my_container -> Base_internalhash_types.state
   end
 |}]
 
@@ -49,8 +53,10 @@ module type Interface_for_poly_types_with_unnamed_argument =
   sig
     type _ my_container
     val hash_fold_my_container :
-      (Hash.state -> 'v_x__001_ -> Hash.state) ->
-      Hash.state -> 'v_x__001_ my_container -> Hash.state
+      (Base_internalhash_types.state ->
+       'v_x__001_ -> Base_internalhash_types.state) ->
+      Base_internalhash_types.state ->
+      'v_x__001_ my_container -> Base_internalhash_types.state
   end
 |}]
 
@@ -59,7 +65,11 @@ module Use_of_hash_fold_syntax_extension = struct
 end
 [%%expect{|
 module Use_of_hash_fold_syntax_extension :
-  sig val f : Hash.state -> (int * string) list -> Hash.state end
+  sig
+    val f :
+      Base_internalhash_types.state ->
+      (int * string) list -> Base_internalhash_types.state
+  end
 |}]
 
 module Support_for_builtins = struct
@@ -69,9 +79,9 @@ end
 module Support_for_builtins :
   sig
     val f :
-      Hash.state ->
+      Base_internalhash_types.state ->
       (nativeint * int64 * int32 * char * int * bool * string * float * unit)
-      option list lazy_t -> Hash.state
+      option list lazy_t -> Base_internalhash_types.state
   end
 |}]
 
@@ -138,7 +148,9 @@ type ok =
 [%%expect{|
 type unhashable
 type ok = { mutable u : unhashable; s : string; }
-val hash_fold_ok : Hash.state -> ok -> Hash.state = <fun>
+val hash_fold_ok :
+  Base_internalhash_types.state -> ok -> Base_internalhash_types.state =
+  <fun>
 val hash_ok : ok -> int = <fun>
 |}]
 
@@ -150,9 +162,12 @@ end
 module type Type_extension =
   sig
     val f :
-      (Hash.state -> 'a -> Hash.state) -> Hash.state -> 'a * 'a -> Hash.state
+      (Base_internalhash_types.state -> 'a -> Base_internalhash_types.state) ->
+      Base_internalhash_types.state ->
+      'a * 'a -> Base_internalhash_types.state
     val g :
-      (Hash.state -> 'a -> Hash.state) -> Hash.state -> 'b -> Hash.state
+      (Base_internalhash_types.state -> 'a -> Base_internalhash_types.state) ->
+      Base_internalhash_types.state -> 'b -> Base_internalhash_types.state
   end
 |}]
 
