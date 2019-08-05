@@ -178,6 +178,54 @@ module Clash = struct
   type 'rigid_bar rigid_rigid_bar = Bar [@@deriving hash]
 end
 
+module Ignoring = struct
+  type a = { a : (int [@compare.ignore]) * string }
+  [@@deriving_inline hash]
+  let _ = fun (_ : a) -> ()
+
+
+  let (hash_fold_a :
+         Ppx_hash_lib.Std.Hash.state -> a -> Ppx_hash_lib.Std.Hash.state) =
+    fun hsv ->
+    fun arg ->
+    let hsv = hsv in
+    let (e0, e1) = arg.a in
+    let hsv = let _ = e0 in hsv in
+    let hsv = hash_fold_string hsv e1 in
+    hsv
+  let _ = hash_fold_a
+  let (hash_a : a -> Ppx_hash_lib.Std.Hash.hash_value) =
+    let func arg =
+      Ppx_hash_lib.Std.Hash.get_hash_value
+        (let hsv = Ppx_hash_lib.Std.Hash.create () in hash_fold_a hsv arg) in
+    fun x -> func x
+  let _ = hash_a
+  [@@@deriving.end]
+
+  type b = { b : (int [@hash.ignore]) * string }
+  [@@deriving_inline hash]
+  let _ = fun (_ : b) -> ()
+
+
+  let (hash_fold_b :
+  Ppx_hash_lib.Std.Hash.state -> b -> Ppx_hash_lib.Std.Hash.state) =
+  fun hsv ->
+    fun arg ->
+    let hsv = hsv in
+    let (e0, e1) = arg.b in
+    let hsv = let _ = e0 in hsv in
+    let hsv = hash_fold_string hsv e1 in
+    hsv
+  let _ = hash_fold_b
+  let (hash_b : b -> Ppx_hash_lib.Std.Hash.hash_value) =
+    let func arg =
+      Ppx_hash_lib.Std.Hash.get_hash_value
+        (let hsv = Ppx_hash_lib.Std.Hash.create () in hash_fold_b hsv arg) in
+    fun x -> func x
+  let _ = hash_b
+  [@@@deriving.end]
+end
+
 module Type_extension = struct
   let _ = ([%hash_fold: int list] : [%hash_fold: int list])
   let _ = ([%hash: int list] : [%hash: int list])

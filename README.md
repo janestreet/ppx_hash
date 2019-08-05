@@ -8,7 +8,7 @@ Syntax
 
 Type definitions: `[@@deriving hash]`
 Expressions: `[%hash_fold: TYPE]` and `[%hash: TYPE]`
-Record fields: `[@hash.ignore]`
+Types, record fields: `[@hash.ignore]`
 
 Basic usage
 -----------
@@ -46,12 +46,17 @@ Hashing without a type definition
 A folding hash function is accessed/created as `[%hash_fold: TYPE]`.
 A direct hash function is accessed/created as `[%hash: TYPE]`.
 
-Special support for record fields
----------------------------------
+Ignoring part of types
+----------------------
 
-Record fields can be annotated with `[@hash.ignore]` so that they are not
-incorporated into the computed hash value. In the case of mutable fields, there
-must be such an annotation.
+Types can be annotated with `[@hash.ignore]` so that they are not
+incorporated into the computed hash value. 
+
+```ocaml
+  type second_only = (string [@hash.ignore]) * int [@@deriving hash]
+```
+
+Mutable records fields must have such an annotation.
 
 ```ocaml
     type t = {
@@ -62,10 +67,11 @@ must be such an annotation.
 ```
 
 Special support for `ppx_compare`
----------------
+---------------------------------
 
-The annotation `[@compare.ignore]` implies `[@no_hashing]`, in order to preserve
-the invariant that `compare x y = 0` implies `hash x = hash y`.
+The annotation `[@compare.ignore]` (and `[@ignore]`) implies
+`[@hash.ignore]`, in order to preserve the invariant that `compare x y
+= 0` implies `hash x = hash y`.
 
 Adapting code to `ppx_hash`
 ---------------------------

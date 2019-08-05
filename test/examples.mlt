@@ -154,6 +154,19 @@ val hash_fold_ok :
 val hash_ok : ok -> int = <fun>
 |}]
 
+type ok_nested =
+  { u : (unhashable [@ignore]) * int
+  ; s : string
+  }
+[@@deriving hash]
+[%%expect{|
+type ok_nested = { u : unhashable * int; s : string; }
+val hash_fold_ok_nested :
+  Base_internalhash_types.state -> ok_nested -> Base_internalhash_types.state =
+  <fun>
+val hash_ok_nested : ok_nested -> int = <fun>
+|}]
+
 module type Type_extension = sig
   val f : [%hash_fold: 'a] -> [%hash_fold: 'a * 'a]
   val g : [%hash_fold: _] -> [%hash_fold: _]

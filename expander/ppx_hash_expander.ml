@@ -3,14 +3,21 @@ open Ppxlib
 open Ast_builder.Default
 
 module Attrs = struct
-  let ignore =
+  let ignore_label_declaration =
     Attribute.declare "hash.ignore"
       Attribute.Context.label_declaration
       Ast_pattern.(pstr nil)
       ()
   ;;
 
-  let no_hashing =
+  let ignore_core_type =
+    Attribute.declare "hash.ignore"
+      Attribute.Context.core_type
+      Ast_pattern.(pstr nil)
+      ()
+  ;;
+
+  let no_hashing_label_declaration =
     Attribute.declare "hash.no_hashing"
       Attribute.Context.label_declaration
       Ast_pattern.(pstr nil)
@@ -19,24 +26,39 @@ module Attrs = struct
 end
 
 let str_attributes = [
-  Attribute.T Attrs.ignore;
-  Attribute.T Attrs.no_hashing;
+  Attribute.T Attrs.ignore_core_type;
+  Attribute.T Attrs.ignore_label_declaration;
+  Attribute.T Attrs.no_hashing_label_declaration;
 ]
 
-let should_ignore_label_declaration ld loc =
-  let warning = "[@hash.no_hashing] is deprecated.  Use [@hash.ignore]." in
-  let should_ignore =
-    if List.exists ~f:(fun attr -> Option.is_some (Attribute.get attr ld))
-         [ Attrs.ignore
-         ; Ppx_compare_expander.Compare.Attrs.ignore
-         ]
-    then `ignore
-    else `incorporate
-  in
-  match Attribute.get Attrs.no_hashing ld with
-  | None -> should_ignore, None
-  | Some () -> `ignore, Some (attribute_of_warning loc warning)
+let is_ignored_gen attrs t =
+  List.exists attrs ~f:(fun attr -> Option.is_some (Attribute.get attr t))
+
+let core_type_is_ignored ct =
+  is_ignored_gen
+    [ Attrs.ignore_core_type
+    ; Ppx_compare_expander.Compare.Attrs.ignore_core_type
+    ]
+    ct
 ;;
+
+let should_ignore_label_declaration ld =
+  let warning = "[@hash.no_hashing] is deprecated.  Use [@hash.ignore]." in
+  let is_ignored =
+    is_ignored_gen
+      [ Attrs.ignore_label_declaration
+      ; Ppx_compare_expander.Compare.Attrs.ignore_label_declaration
+      ]
+      ld
+    (* Avoid confusing errors with [ { mutable field : (value[@ignore]) } ]
+       vs [ { mutable field : value [@ignore] } ] by treating them the same. *)
+    || core_type_is_ignored ld.pld_type
+  in
+  match Attribute.get Attrs.no_hashing_label_declaration ld with
+  | None -> (if is_ignored then `ignore else `incorporate), None
+  | Some () -> `ignore, Some (attribute_of_warning ld.pld_loc warning)
+;;
+
 
 (* Generate code to compute hash values of type [t] in folding style, following the structure of
    the type.  Incorporate all structure when computing hash values, to maximise hash
@@ -185,6 +207,11 @@ let with_tuple
   let binding  = value_binding ~loc ~pat:pattern ~expr:value in
   Hsv_expr.pexp_let ~loc Nonrecursive [binding] e
 
+let hash_ignore ~loc value =
+  Hsv_expr.pexp_let ~loc Nonrecursive
+    [value_binding ~loc ~pat:[%pat? _] ~expr:value]
+    (Hsv_expr.identity ~loc)
+
 let rec hash_applied ty value =
   let loc = ty.ptyp_loc in
   match ty.ptyp_desc with
@@ -290,21 +317,24 @@ and hash_sum ~loc cds value =
 
 and hash_fold_of_ty ty value =
   let loc = ty.ptyp_loc in
-  match ty.ptyp_desc with
-  | Ptyp_constr _ -> hash_applied ty value
-  | Ptyp_tuple tys -> hash_fold_of_tuple ~loc tys value
-  | Ptyp_var name ->
-    Hsv_expr.invoke_hash_fold_t
-      ~loc
-      ~hash_fold_t:(evar ~loc (tp_name name))
-      ~t:value
-  | Ptyp_arrow _ ->
-    Location.raise_errorf ~loc "ppx_hash: functions can not be hashed."
-  | Ptyp_variant (row_fields, Closed, None) ->
-    hash_variant ~loc row_fields value
-  | _ ->
-    let s = string_of_core_type ty in
-    Location.raise_errorf ~loc "ppx_hash: unsupported type: %s" s
+  if core_type_is_ignored ty then
+    hash_ignore ~loc value
+  else
+    match ty.ptyp_desc with
+    | Ptyp_constr _ -> hash_applied ty value
+    | Ptyp_tuple tys -> hash_fold_of_tuple ~loc tys value
+    | Ptyp_var name ->
+      Hsv_expr.invoke_hash_fold_t
+        ~loc
+        ~hash_fold_t:(evar ~loc (tp_name name))
+        ~t:value
+    | Ptyp_arrow _ ->
+      Location.raise_errorf ~loc "ppx_hash: functions can not be hashed."
+    | Ptyp_variant (row_fields, Closed, None) ->
+      hash_variant ~loc row_fields value
+    | _ ->
+      let s = string_of_core_type ty in
+      Location.raise_errorf ~loc "ppx_hash: unsupported type: %s" s
 
 and hash_fold_of_ty_fun ~type_constraint ty =
   let loc = ty.ptyp_loc in
@@ -335,15 +365,12 @@ and hash_fold_of_record ~loc lds value =
     Hsv_expr.compose ~loc hsv (
       let loc = ld.pld_loc in
       let label = Located.map lident ld.pld_name in
-      let should_ignore, should_warn = should_ignore_label_declaration ld loc in
+      let should_ignore, should_warn = should_ignore_label_declaration ld in
       let field_handling =
         match ld.pld_mutable, should_ignore with
-        | Mutable, `incorporate
-          -> `error "require [@hash.ignore] or [@compare.ignore] on mutable record field"
-        | (Mutable | Immutable), `ignore ->
-          `ignore
-        | Immutable, `incorporate ->
-          `incorporate
+        | Mutable, `incorporate-> `error "require [@hash.ignore] or [@compare.ignore] on mutable record field"
+        | (Mutable | Immutable), `ignore -> `ignore
+        | Immutable, `incorporate -> `incorporate
       in
       let hsv =
         match field_handling with
@@ -493,9 +520,13 @@ let str_type_decl ~loc ~path:_ (rec_flag, tds) =
       inherit type_is_recursive rec_flag tds as super
 
       method! label_declaration ld =
-        match fst (should_ignore_label_declaration ld ld.pld_loc) with
+        match fst (should_ignore_label_declaration ld) with
         | `ignore -> ()
         | `incorporate -> super#label_declaration ld
+
+      method! core_type ty =
+        if core_type_is_ignored ty then ()
+        else super#core_type ty
 
     end)#go ()
   in
