@@ -233,12 +233,13 @@ and hash_fold_of_tuple ~loc tys value =
     ))
 
 and hash_variant ~loc row_fields value =
-  let map = function
-    | Rtag ({ txt = cnstr; _ }, _attrs, true, _) | Rtag ({ txt = cnstr; _ }, _attrs, _, []) ->
+  let map = fun row ->
+    match row.prf_desc with
+    | Rtag ({ txt = cnstr; _ }, true, _) | Rtag ({ txt = cnstr; _ }, _, []) ->
       Hsv_expr.case ~guard:None
         ~lhs:(ppat_variant ~loc cnstr None)
         ~rhs:(hash_fold_int ~loc (Ocaml_common.Btype.hash_variant cnstr))
-    | Rtag ({ txt = cnstr; _ }, _attrs, false, tp :: _) ->
+    | Rtag ({ txt = cnstr; _ }, false, tp :: _) ->
       let v = "_v" in
       let body =
         Hsv_expr.compose ~loc
@@ -453,6 +454,7 @@ let hash_structure_item_of_td td =
           `uses_hash_fold_t_being_defined,
           (hash_of_ty_fun ~special_case_simple_types:false ~type_constraint:false
              { ptyp_loc = loc;
+               ptyp_loc_stack = [];
                ptyp_attributes = [];
                ptyp_desc =
                  Ptyp_constr ({ loc; txt = Lident td.ptype_name.txt }, []); })
