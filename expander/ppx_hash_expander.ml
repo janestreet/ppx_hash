@@ -548,9 +548,9 @@ let str_type_decl ~loc ~path:_ (rec_flag, tds) =
     let rely_on_hash_fold_t, use_rhs =
       List.partition_map hash_bindings ~f:(function
         | `uses_hash_fold_t_being_defined, binding ->
-          `Fst binding
+          First binding
         | `uses_rhs, binding ->
-          `Snd binding)
+          Second binding)
     in
     pstr_value ~loc Nonrecursive (hash_fold_bindings @ use_rhs) @
     pstr_value ~loc Nonrecursive rely_on_hash_fold_t
