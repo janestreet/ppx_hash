@@ -19,15 +19,15 @@ module Bench (Hash : Hash.S) = struct
       type d = (int * string) list              [@@deriving hash]
 
       let hash_fold_d :
-          Ppx_hash_lib.Std.Hash.state -> d -> Ppx_hash_lib.Std.Hash.state =
+        Ppx_hash_lib.Std.Hash.state -> d -> Ppx_hash_lib.Std.Hash.state =
         (*fun hsv  ->
           fun arg  ->*)
-            hash_fold_list
-              (fun hsv  ->
-                fun arg  ->
-                  let (e0,e1) = arg in
-                  hash_fold_string (hash_fold_int hsv e0) e1) (*hsv
-              arg*)
+        hash_fold_list
+          (fun hsv  ->
+             fun arg  ->
+               let (e0,e1) = arg in
+               hash_fold_string (hash_fold_int hsv e0) e1) (*hsv
+                                                             arg*)
 
       let _ = Foo,Bar
 
@@ -135,7 +135,7 @@ module Traverse_only : Hash.S = struct
     let compare_state _ _ = 0
     let state_to_string () = "()"
   end
-  end
+end
 
 (* This module enforces the rules described in ../hash_intf.ml *)
 module Check_initialized_correctly : Hash.S = struct
