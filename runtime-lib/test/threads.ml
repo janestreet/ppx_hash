@@ -1,5 +1,7 @@
 
 open Core
+module Unix = Core_unix
+module Thread = Core_thread
 
 module Tests(Hash : Base.Hash.S with type hash_value = int) = struct
 
