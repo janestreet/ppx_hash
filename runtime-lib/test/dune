@@ -1,5 +1,6 @@
 (library (name ppx_hash_runtime_test)
- (libraries ppx_hash_lib siphash_lib core core.core_thread core.core_unix)
+ (libraries ppx_hash_lib siphash_lib core_kernel.core core.core_thread
+  core.core_unix)
  (preprocess (pps ppx_jane)))
 
 (alias (name DEFAULT)

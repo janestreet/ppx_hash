@@ -1,4 +1,4 @@
-(library (name ppx_hash_test) (libraries core_kernel)
+(library (name ppx_hash_test) (libraries core_kernel.core)
  (preprocess (pps ppx_jane)))
 
 (alias (name DEFAULT)
