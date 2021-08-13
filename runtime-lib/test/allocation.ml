@@ -4,8 +4,8 @@ let words_of_float = if Sys.word_size_in_bits = 64 then 2 else 3
 
 let check_allocation : expect:int -> (unit -> 'a) -> 'a =
   fun ~expect f ->
-  (* It costs 23 words of allocation to discover the allocation! *)
-  let fudge = 17 + (3 * words_of_float) in
+  (* It costs [fudge] words of allocation to discover the allocation! *)
+  let fudge = 18 + (3 * words_of_float) in
   let n0 = Int.of_float (Gc.stat ()).Gc.Stat.minor_words in
   let n1 = Int.of_float (Gc.stat ()).Gc.Stat.minor_words in
   [%test_result: Int.t] ~expect:(n0 + fudge) n1;
