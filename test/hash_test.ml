@@ -284,6 +284,15 @@ module Gadt = struct
   [@@deriving hash]
 end
 
+module Up_to_polymorphic_variant = struct
+  type 'a t =
+    | A : [ `A ] t
+    | B : [ `B ] t
+    | C : [< `A | `B ] t -> [ `C ] t
+    | D : [< `A | `B > `A ] t -> [ `C ] t
+  [@@deriving hash]
+end
+
 module Clash = struct
   (* Same name for type-var and type-name; must be careful when introducing rigid type names. *)
   type 'hey hey = Hey of 'hey [@@deriving hash]

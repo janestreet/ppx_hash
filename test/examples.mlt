@@ -1,7 +1,6 @@
 open Ppx_hash_lib.Std
-open Hash.Builtin
+open Hash.Builtin;;
 
-;;
 #verbose true
 
 module type Interface_for_types_named_t = sig

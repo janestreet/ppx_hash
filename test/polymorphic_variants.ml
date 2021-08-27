@@ -35,3 +35,23 @@ let%expect_test "`A hashes the same regardless of which type it's in" =
   assert (h3 = h4);
   assert (h4 = h5)
 ;;
+
+let%expect_test "Up to polymorphic variant functions behave exactly the same as fully \
+                 bounded polymorphic variant functions"
+  =
+  let module H : sig
+    val h1 : [%hash: [ `A | `B ]]
+    val h2 : [%hash: [< `A | `B ]]
+    val h3 : [%hash: [< `A | `B > `A ]]
+  end = struct
+    let h1 = [%hash: [ `A | `B ]]
+    let h2 = [%hash: [< `A | `B ]]
+    let h3 = [%hash: [< `A | `B > `A ]]
+  end
+  in
+  let open H in
+  assert (h1 `A = h2 `A);
+  assert (h1 `A = h3 `A);
+  assert (h1 `B = h2 `B);
+  assert (h1 `B = h3 `B)
+;;

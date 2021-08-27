@@ -7,8 +7,11 @@ module T0 = struct
   let _ = fun (_ : 'a t) -> ()
 
   let hash_fold_t :
-    'a. (Ppx_hash_lib.Std.Hash.state -> 'a -> Ppx_hash_lib.Std.Hash.state)
-    -> Ppx_hash_lib.Std.Hash.state -> 'a t -> Ppx_hash_lib.Std.Hash.state
+    'a.
+    (Ppx_hash_lib.Std.Hash.state -> 'a -> Ppx_hash_lib.Std.Hash.state)
+    -> Ppx_hash_lib.Std.Hash.state
+    -> 'a t
+    -> Ppx_hash_lib.Std.Hash.state
     =
     hash_fold_list
   ;;
@@ -24,8 +27,11 @@ module T1 = struct
   let _ = fun (_ : 'a t) -> ()
 
   let hash_fold_t :
-    'a. (Ppx_hash_lib.Std.Hash.state -> 'a -> Ppx_hash_lib.Std.Hash.state)
-    -> Ppx_hash_lib.Std.Hash.state -> 'a t -> Ppx_hash_lib.Std.Hash.state
+    'a.
+    (Ppx_hash_lib.Std.Hash.state -> 'a -> Ppx_hash_lib.Std.Hash.state)
+    -> Ppx_hash_lib.Std.Hash.state
+    -> 'a t
+    -> Ppx_hash_lib.Std.Hash.state
     =
     fun _hash_fold_a hsv arg ->
     hash_fold_list (fun hsv arg -> hash_fold_option _hash_fold_a hsv arg) hsv arg
@@ -42,8 +48,11 @@ module T2 = struct
   let _ = fun (_ : 'a t) -> ()
 
   let hash_fold_t :
-    'a. (Ppx_hash_lib.Std.Hash.state -> 'a -> Ppx_hash_lib.Std.Hash.state)
-    -> Ppx_hash_lib.Std.Hash.state -> 'a t -> Ppx_hash_lib.Std.Hash.state
+    'a.
+    (Ppx_hash_lib.Std.Hash.state -> 'a -> Ppx_hash_lib.Std.Hash.state)
+    -> Ppx_hash_lib.Std.Hash.state
+    -> 'a t
+    -> Ppx_hash_lib.Std.Hash.state
     =
     fun _hash_fold_a hsv arg ->
     hash_fold_list

@@ -2,7 +2,7 @@ open Core
 module Hash = Base.Hash
 
 module Bench (Hash : Hash.S) = struct
-  let%bench_module (""[@name_suffix Hash.description]) =
+  let%bench_module ("" [@name_suffix Hash.description]) =
     (module struct
       module Ppx_hash_lib = struct
         module Std = struct

@@ -331,7 +331,7 @@ and hash_fold_of_ty ty value =
     | Ptyp_var name ->
       Hsv_expr.invoke_hash_fold_t ~loc ~hash_fold_t:(evar ~loc (tp_name name)) ~t:value
     | Ptyp_arrow _ -> Location.raise_errorf ~loc "ppx_hash: functions can not be hashed."
-    | Ptyp_variant (row_fields, Closed, None) -> hash_variant ~loc row_fields value
+    | Ptyp_variant (row_fields, Closed, _) -> hash_variant ~loc row_fields value
     | _ ->
       let s = string_of_core_type ty in
       Location.raise_errorf ~loc "ppx_hash: unsupported type: %s" s)
