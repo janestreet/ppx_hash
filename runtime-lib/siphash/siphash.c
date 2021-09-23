@@ -161,16 +161,22 @@ CAMLprim value siphash_fold_string(value st, value s)
   switch (left) {
   case 7:
     w |= ((uint64_t)in[6]) << 48;
+    /* fall through */
   case 6:
     w |= ((uint64_t)in[5]) << 40;
+    /* fall through */
   case 5:
     w |= ((uint64_t)in[4]) << 32;
+    /* fall through */
   case 4:
     w |= ((uint64_t)in[3]) << 24;
+    /* fall through */
   case 3:
     w |= ((uint64_t)in[2]) << 16;
+    /* fall through */
   case 2:
     w |= ((uint64_t)in[1]) << 8;
+    /* fall through */
   case 1:
     w |= ((uint64_t)in[0]);
     break;
