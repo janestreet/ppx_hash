@@ -555,7 +555,7 @@ let str_type_decl ~loc ~path:_ (rec_flag, tds) =
     @ pstr_value ~loc Nonrecursive rely_on_hash_fold_t
 ;;
 
-let sig_type_decl ~loc:_ ~path:_ (_rec_flag, tds) =
+let mk_sig ~loc:_ ~path:_ (_rec_flag, tds) =
   List.concat
     (List.map tds ~f:(fun td ->
        let monomorphic = List.is_empty td.ptype_params in
@@ -578,6 +578,18 @@ let sig_type_decl ~loc:_ ~path:_ (_rec_flag, tds) =
          [ [ definition ~f_type:hash_fold_type ~f_name:hash_fold_ ]
          ; (if monomorphic then [ definition ~f_type:hash_type ~f_name:hash_ ] else [])
          ]))
+;;
+
+let sig_type_decl ~loc ~path (rec_flag, tds) =
+  match
+    mk_named_sig
+      ~loc
+      ~sg_name:"Ppx_hash_lib.Hashable.S"
+      ~handle_polymorphic_variant:true
+      tds
+  with
+  | Some include_info -> [ psig_include ~loc include_info ]
+  | None -> mk_sig ~loc ~path (rec_flag, tds)
 ;;
 
 let hash_fold_core_type ty = hash_fold_of_ty_fun ~type_constraint:true ty

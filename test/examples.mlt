@@ -13,7 +13,7 @@ module type Interface_for_types_named_t =
   sig
     type t
     val hash_fold_t :
-      Base_internalhash_types.state -> t -> Base_internalhash_types.state
+      t Base.Exported_for_specific_uses.Ppx_hash_lib.hash_fold
     val hash : t -> int
   end
 |}]
