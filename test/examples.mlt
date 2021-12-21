@@ -143,7 +143,7 @@ Line _, characters _-_:
 Error: ppx_hash: open types are not supported
 |}]
 
-type fail = [> `Foo ] [@@deriving hash]
+type fail = private [> `Foo ] [@@deriving hash]
 
 [%%expect
   {|
@@ -160,7 +160,8 @@ type fail =
 [%%expect
   {|
 Line _, characters _-_:
-Error: ppx_hash: require [@hash.ignore] or [@compare.ignore] on mutable record field
+Error: ppx_hash: require [@hash.ignore] or [@compare.ignore] on mutable
+       record field
 |}]
 
 type unhashable

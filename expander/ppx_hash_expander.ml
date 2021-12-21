@@ -88,6 +88,7 @@ module Hsv_expr : sig
   val identity : loc:location -> t
   val invoke_hash_fold_t : loc:location -> hash_fold_t:expr -> t:expr -> t
   val compose : loc:location -> t -> t -> t
+  val compile_error : loc:location -> string -> t
 
   (** the [_unchecked] functions all break abstraction in some way *)
   val of_expression_unchecked : expr -> t
@@ -99,6 +100,7 @@ module Hsv_expr : sig
      exactly once *)
   type case
 
+  val compile_error_case : loc:location -> string -> case
   val pexp_match : loc:location -> expr -> case list -> t
 
   (* [lhs] should not bind [hsv] *)
@@ -126,6 +128,14 @@ end = struct
   let case = case
   let pexp_let = pexp_let
   let with_attributes ~f x = { x with pexp_attributes = f x.pexp_attributes }
+
+  let compile_error ~loc s =
+    pexp_extension ~loc (Location.Error.to_extension (Location.Error.createf ~loc "%s" s))
+  ;;
+
+  let compile_error_case ~loc s =
+    case ~lhs:(ppat_any ~loc) ~guard:None ~rhs:(compile_error ~loc s)
+  ;;
 end
 
 let hash_fold_int ~loc i : Hsv_expr.t =
@@ -276,7 +286,9 @@ and hash_variant ~loc row_fields value =
         ~rhs:(hash_applied ty (evar ~loc v))
     | Rinherit ty ->
       let s = string_of_core_type ty in
-      Location.raise_errorf ~loc "ppx_hash: impossible variant case: %s" s
+      Hsv_expr.compile_error_case
+        ~loc
+        (Printf.sprintf "ppx_hash: impossible variant case: %s" s)
   in
   Hsv_expr.pexp_match ~loc value (List.map ~f:map row_fields)
 
@@ -330,11 +342,11 @@ and hash_fold_of_ty ty value =
     | Ptyp_tuple tys -> hash_fold_of_tuple ~loc tys value
     | Ptyp_var name ->
       Hsv_expr.invoke_hash_fold_t ~loc ~hash_fold_t:(evar ~loc (tp_name name)) ~t:value
-    | Ptyp_arrow _ -> Location.raise_errorf ~loc "ppx_hash: functions can not be hashed."
+    | Ptyp_arrow _ -> Hsv_expr.compile_error ~loc "ppx_hash: functions can not be hashed."
     | Ptyp_variant (row_fields, Closed, _) -> hash_variant ~loc row_fields value
     | _ ->
       let s = string_of_core_type ty in
-      Location.raise_errorf ~loc "ppx_hash: unsupported type: %s" s)
+      Hsv_expr.compile_error ~loc (Printf.sprintf "ppx_hash: unsupported type: %s" s))
 
 and hash_fold_of_ty_fun ~type_constraint ty =
   let loc = { ty.ptyp_loc with loc_ghost = true } in
@@ -370,7 +382,7 @@ and hash_fold_of_record ~loc lds value =
        in
        let hsv =
          match field_handling with
-         | `error s -> Location.raise_errorf ~loc "ppx_hash: %s" s
+         | `error s -> Hsv_expr.compile_error ~loc (Printf.sprintf "ppx_hash: %s" s)
          | `incorporate -> hash_fold_of_ty ld.pld_type (pexp_field ~loc value label)
          | `ignore -> Hsv_expr.identity ~loc
        in
@@ -469,14 +481,14 @@ let hash_fold_structure_item_of_td td ~rec_flag =
     match td.ptype_kind with
     | Ptype_variant cds -> hash_sum ~loc cds v
     | Ptype_record lds -> hash_fold_of_record ~loc lds v
-    | Ptype_open -> Location.raise_errorf ~loc "ppx_hash: open types are not supported"
+    | Ptype_open -> Hsv_expr.compile_error ~loc "ppx_hash: open types are not supported"
     | Ptype_abstract ->
       (match td.ptype_manifest with
        | None -> hash_fold_of_abstract ~loc td.ptype_name.txt v
        | Some ty ->
          (match ty.ptyp_desc with
           | Ptyp_variant (_, Open, _) | Ptyp_variant (_, Closed, Some (_ :: _)) ->
-            Location.raise_errorf
+            Hsv_expr.compile_error
               ~loc:ty.ptyp_loc
               "ppx_hash: cannot hash open polymorphic variant types"
           | Ptyp_variant (row_fields, _, _) -> hash_variant ~loc row_fields v
