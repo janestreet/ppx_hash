@@ -61,9 +61,9 @@ module type Interface_for_poly_types_with_unnamed_argument =
     type _ my_container
     val hash_fold_my_container :
       (Base_internalhash_types.state ->
-       'v_x__001_ -> Base_internalhash_types.state) ->
+       'a__001_ -> Base_internalhash_types.state) ->
       Base_internalhash_types.state ->
-      'v_x__001_ my_container -> Base_internalhash_types.state
+      'a__001_ my_container -> Base_internalhash_types.state
   end
 |}]
 
