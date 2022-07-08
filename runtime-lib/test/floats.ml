@@ -54,8 +54,7 @@ let labelled () =
   ; "Float.infinity", f 0x7ff0000000000000L Float.infinity
   ; "-.Float.nan", f_nan 0xfff8000000000001L
   ; "-.Float.infinity", f 0xfff0000000000000L (-.Float.infinity)
-  ; "0./.0.", f 0xfff8000000000000L (0. /. 0.)
-    (* nan with a different representation *)
+  ; "0./.0.", f 0xfff8000000000000L (0. /. 0.) (* nan with a different representation *)
   ]
 ;;
 

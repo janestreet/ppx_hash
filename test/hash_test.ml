@@ -372,9 +372,7 @@ end
 
 module Recursion_with_aliases = struct
   type a = A of c
-
   and b = a
-
   and c = b [@@deriving hash]
 end
 
