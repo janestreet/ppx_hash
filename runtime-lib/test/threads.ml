@@ -38,7 +38,6 @@ module Tests (Hash : Base.Hash.S with type hash_value = int) = struct
     let h () = [%hash: int list] some_list
     let res0 = h ()
     let res1, res2 = run_in_two_threads h () h ()
-
     let%test_unit _ = [%test_result: int] res1 ~expect:res0
     let%test_unit _ = [%test_result: int] res2 ~expect:res0
   end

@@ -53,12 +53,9 @@ module Bench (Hash : Hash.S) = struct
 
       let d10 = dn 10
       let d100 = dn 100
-
       let%bench "hash_init" = Hash.alloc ()
-
       let state = Hash.alloc ()
       let run folder x = ignore (Hash.get_hash_value (folder (Hash.reset state) x))
-
       let%bench "hash a" = run hash_fold_a a
       let%bench "hash b" = run hash_fold_b b
       let%bench "hash c__1" = run hash_fold_c c1
@@ -67,7 +64,6 @@ module Bench (Hash : Hash.S) = struct
       let%bench "hash c100" = run hash_fold_c c100
       let%bench "hash d_10" = run hash_fold_d d10
       let%bench "hash d100" = run hash_fold_d d100
-
       let _ = c2, c10, c100, d10, d100
     end)
   ;;
@@ -111,7 +107,6 @@ module Bench_hashtbl_hash = struct
       let d10 = dn 10
       let d100 = dn 100
       let run f x = ignore (f x)
-
       let%bench "hash a" = run hash_a a
       let%bench "hash b" = run hash_b b
       let%bench "hash c__1" = run hash_c c1
@@ -120,7 +115,6 @@ module Bench_hashtbl_hash = struct
       let%bench "hash c100" = run hash_c c100
       let%bench "hash d_10" = run hash_d d10
       let%bench "hash d100" = run hash_d d100
-
       let _ = c2, c10, c100, d10, d100
     end)
   ;;

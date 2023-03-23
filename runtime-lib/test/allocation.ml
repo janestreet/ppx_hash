@@ -68,7 +68,6 @@ struct
   ;;
 
   let run_seeded seed = Hash.run ~seed hash_fold_tree the_tree
-
   let%test_unit _ = assert (not (run_seeded X.seed1 = run_seeded X.seed2))
 
   let%test_unit _ =
@@ -96,7 +95,6 @@ struct
 
   let res1 = hash_tree the_tree
   let res2 = hash_tree the_tree
-
   let%test_unit "hashing is stable2" = [%test_eq: int] res1 res2
 end
 

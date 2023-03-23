@@ -104,7 +104,6 @@ module Tests (Hash : Base.Hash.S with type hash_value = int) = struct
 
   let ( = ) x y = Hash.For_tests.compare_state x y = 0
   let assert_different hash_t a b = assert (not (hash_t a = hash_t b))
-
   let%test_unit _ = assert_different hash_int 0 (1 lsl 32)
 
   let%test_unit _ =

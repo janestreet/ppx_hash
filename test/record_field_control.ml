@@ -29,7 +29,6 @@ module Immutable = struct
 
   let v1 = { s = "hey"; i = 42 }
   let v2 = { s = "ho"; i = 42 }
-
   let%test_unit _ = check_hash_differently ~hash ~sexp_of_t v1 v2
 end
 
@@ -42,7 +41,6 @@ module Immutable_hash_dot_ignore = struct
 
   let v1 = { s = "hey"; i = 42 }
   let v2 = { s = "ho"; i = 42 }
-
   let%test_unit _ = check_hash_same ~hash ~sexp_of_t v1 v2
   let%test_unit _ = [%test_eq: int] (hash v1) No_string_field.(hash v1)
 end
@@ -56,7 +54,6 @@ module Mutable_hash_dot_ignore = struct
 
   let v1 = { s = "hey"; i = 42 }
   let v2 = { s = "ho"; i = 42 }
-
   let%test_unit _ = check_hash_same ~hash ~sexp_of_t v1 v2
   let%test_unit _ = [%test_eq: int] (hash v1) No_string_field.(hash v1)
 end
@@ -70,7 +67,6 @@ module Immutable_compare_ignore = struct
 
   let v1 = { s = "hey"; i = 42 }
   let v2 = { s = "ho"; i = 42 }
-
   let%test_unit _ = check_hash_same ~hash ~sexp_of_t v1 v2
   let%test_unit _ = [%test_eq: int] (hash v1) No_string_field.(hash v1)
 end
