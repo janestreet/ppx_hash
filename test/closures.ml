@@ -106,13 +106,13 @@ module T3 = struct
       -> Ppx_hash_lib.Std.Hash.state
     =
     fun _hash_fold_a ->
-      let rec hash_fold_t_of_a hsv arg =
-        match arg with
-        | Leaf -> Ppx_hash_lib.Std.Hash.fold_int hsv 0
-        | Node _a0 ->
-          hash_fold_list hash_fold_t_of_a (Ppx_hash_lib.Std.Hash.fold_int hsv 1) _a0
-      in
-      hash_fold_t_of_a
+    let rec hash_fold_t_of_a hsv arg =
+      match arg with
+      | Leaf -> Ppx_hash_lib.Std.Hash.fold_int hsv 0
+      | Node _a0 ->
+        hash_fold_list hash_fold_t_of_a (Ppx_hash_lib.Std.Hash.fold_int hsv 1) _a0
+    in
+    hash_fold_t_of_a
   ;;
 end
 
@@ -163,19 +163,19 @@ module T4 = struct
       -> Ppx_hash_lib.Std.Hash.state
     =
     fun _hash_fold_a ->
-      let hash_fold_t_of_tuple =
-        lazy
-          (hash_fold_t_lazy_closure_allocation (fun hsv arg ->
-             let e0, e1 = arg in
-             _hash_fold_a (_hash_fold_a hsv e0) e1))
-      in
-      fun hsv arg ->
-        match arg with
-        | Leaf -> Ppx_hash_lib.Std.Hash.fold_int hsv 0
-        | Node _a0 ->
-          hash_fold_list
-            (Lazy.force hash_fold_t_of_tuple)
-            (Ppx_hash_lib.Std.Hash.fold_int hsv 1)
-            _a0
+    let hash_fold_t_of_tuple =
+      lazy
+        (hash_fold_t_lazy_closure_allocation (fun hsv arg ->
+           let e0, e1 = arg in
+           _hash_fold_a (_hash_fold_a hsv e0) e1))
+    in
+    fun hsv arg ->
+      match arg with
+      | Leaf -> Ppx_hash_lib.Std.Hash.fold_int hsv 0
+      | Node _a0 ->
+        hash_fold_list
+          (Lazy.force hash_fold_t_of_tuple)
+          (Ppx_hash_lib.Std.Hash.fold_int hsv 1)
+          _a0
   ;;
 end
