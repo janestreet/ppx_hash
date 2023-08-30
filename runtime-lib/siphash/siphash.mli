@@ -1,6 +1,5 @@
 include Base.Hash.S with type seed = string and type hash_value = int
 
-
 (** [Siphash] uses first 16 chars of the [seed] string to initialize/reset the hash
     state, padding it to the right with zero bytes if it's too short. The rest of the
     string is discarded. *)

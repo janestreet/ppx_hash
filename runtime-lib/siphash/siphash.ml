@@ -17,7 +17,7 @@ let reset ?(seed = default_seed) t = reset_to t seed
 
 module For_tests = struct
   external blit_state_to_bytes : state -> bytes -> unit = "siphash_blit_hash_to_bytes"
-  [@@noalloc]
+    [@@noalloc]
 
   let state_to_string state =
     let bytes = Bytes.create (8 * 4) in

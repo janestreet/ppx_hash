@@ -252,7 +252,7 @@ and hash_fold_of_tuple ~loc tys value =
       elems1
       ~init:(Hsv_expr.identity ~loc)
       ~f:(fun (v, t) (result : Hsv_expr.t) ->
-        Hsv_expr.compose ~loc (hash_fold_of_ty t v) result))
+      Hsv_expr.compose ~loc (hash_fold_of_ty t v) result))
 
 and hash_variant ~loc row_fields value =
   let map row =
@@ -535,16 +535,16 @@ let str_type_decl ~loc ~path:_ (rec_flag, tds) =
   let tds = List.map tds ~f:name_type_params_in_td in
   let rec_flag =
     (object
-      inherit type_is_recursive rec_flag tds as super
+       inherit type_is_recursive rec_flag tds as super
 
-      method! label_declaration ld =
-        match fst (should_ignore_label_declaration ld) with
-        | `ignore -> ()
-        | `incorporate -> super#label_declaration ld
+       method! label_declaration ld =
+         match fst (should_ignore_label_declaration ld) with
+         | `ignore -> ()
+         | `incorporate -> super#label_declaration ld
 
-      method! core_type ty = if core_type_is_ignored ty then () else super#core_type ty
+       method! core_type ty = if core_type_is_ignored ty then () else super#core_type ty
     end)
-    #go
+      #go
       ()
   in
   let hash_fold_bindings = List.map ~f:(hash_fold_structure_item_of_td ~rec_flag) tds in

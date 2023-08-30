@@ -44,20 +44,7 @@ module Tests (Hash : Base.Hash.S with type hash_value = int) = struct
 
     (* these tests can have false positives, but those should be fixable by tweaking the
        [ints] list. *)
-    let ints =
-      [ 0
-      ; 1
-      ; 2
-      ; 3
-      ; 100
-      ; 500
-      ;
-        (*0x1234567812345678;*)
-        -1
-      ; -2
-      ]
-    ;;
-
+    let ints = [ 0; 1; 2; 3; 100; 500; (*0x1234567812345678;*) -1; -2 ]
     let ( % ) a b = [%hash: int * int] (a, b)
     let zero = 0
 
@@ -129,7 +116,7 @@ module Tests (Hash : Base.Hash.S with type hash_value = int) = struct
          (List.init 100_000 ~f:(fun i ->
             Hash.get_hash_value (hash_int i) land ((1 lsl 17) - 1), i)))
     |> List.iter ~f:(fun (_, vs) ->
-      (*  the number 10 is motivated by 0.9999 being close enough
+         (*  the number 10 is motivated by 0.9999 being close enough
          to 1 in the following R expression:
 
          ppois(10, lambda = 10^5 / 2^17) ^ (2^17)
@@ -137,7 +124,7 @@ module Tests (Hash : Base.Hash.S with type hash_value = int) = struct
 
          With enough hand-waving and invocation of Poisson limit theorem
          I convinced myself that poisson distribution is an OK approximation. *)
-      [%test_pred: int] (fun x -> x <= 10) (List.length vs))
+         [%test_pred: int] (fun x -> x <= 10) (List.length vs))
   ;;
 
   let%test_unit "list collisions" =

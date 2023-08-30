@@ -52,12 +52,12 @@ module F (Hash : Base.Hash.S) = struct
 end
 
 module Test_alloc (X : sig
-    module Hash : Base.Hash.S with type hash_value = int
+  module Hash : Base.Hash.S with type hash_value = int
 
-    val size_of_state : int
-    val seed1 : Hash.seed
-    val seed2 : Hash.seed
-  end) =
+  val size_of_state : int
+  val seed1 : Hash.seed
+  val seed2 : Hash.seed
+end) =
 struct
   include F (X.Hash)
 
@@ -99,17 +99,17 @@ struct
 end
 
 module Test_alloc_internalhash = Test_alloc (struct
-    module Hash = Base.Hash
+  module Hash = Base.Hash
 
-    let size_of_state = 0
-    let seed1 = 1
-    let seed2 = 2
-  end)
+  let size_of_state = 0
+  let seed1 = 1
+  let seed2 = 2
+end)
 
 module Test_alloc_siphash = Test_alloc (struct
-    module Hash = Siphash_lib.Siphash
+  module Hash = Siphash_lib.Siphash
 
-    let size_of_state = if Sys.word_size_in_bits = 64 then 5 else 9
-    let seed1 = "1"
-    let seed2 = "2"
-  end)
+  let size_of_state = if Sys.word_size_in_bits = 64 then 5 else 9
+  let seed1 = "1"
+  let seed2 = "2"
+end)
