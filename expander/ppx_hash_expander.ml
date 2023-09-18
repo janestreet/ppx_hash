@@ -138,12 +138,14 @@ end = struct
   ;;
 end
 
-let hash_fold_int ~loc i : Hsv_expr.t =
+let hash_fold_int_expr ~loc i_expr : Hsv_expr.t =
   Hsv_expr.invoke_hash_fold_t
     ~loc
     ~hash_fold_t:[%expr Ppx_hash_lib.Std.Hash.fold_int]
-    ~t:(eint ~loc i)
+    ~t:i_expr
 ;;
+
+let hash_fold_int ~loc i : Hsv_expr.t = hash_fold_int_expr ~loc (eint ~loc i)
 
 let special_case_types_named_t = function
   | `hash_fold -> false
@@ -330,7 +332,38 @@ and branches_of_sum = function
       let hsv = hash_fold_int ~loc i in
       branch_of_sum hsv ~loc cd)
 
-and hash_sum ~loc cds value = Hsv_expr.pexp_match ~loc value (branches_of_sum cds)
+and hash_sum_special_case_for_enums ~loc cds value =
+  let cd_has_payload (cd : constructor_declaration) =
+    match cd.pcd_args with
+    | Pcstr_tuple [] -> false
+    | _ -> true
+  in
+  match cds with
+  | [ _ ] ->
+    (* Don't need to write any tag at all for the single-constructor case.
+       The general [branches_of_sum] function can take care of that *)
+    None
+  | _ ->
+    (match List.exists cds ~f:(fun cd -> cd_has_payload cd) with
+     | true -> None
+     | false ->
+       Some
+         (let tag_expr =
+            pexp_match
+              ~loc
+              value
+              (List.mapi cds ~f:(fun i cd ->
+                 let loc = cd.pcd_loc in
+                 let tag = eint ~loc i in
+                 let pcnstr = pconstruct cd None in
+                 case ~guard:None ~lhs:pcnstr ~rhs:tag))
+          in
+          hash_fold_int_expr ~loc tag_expr))
+
+and hash_sum ~loc cds value =
+  match hash_sum_special_case_for_enums ~loc cds value with
+  | Some v -> v
+  | None -> Hsv_expr.pexp_match ~loc value (branches_of_sum cds)
 
 and hash_fold_of_ty ty value =
   let loc = { ty.ptyp_loc with loc_ghost = true } in

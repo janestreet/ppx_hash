@@ -43,6 +43,70 @@ module Examples_from_design_doc = struct
   type t7 = int lazy_t [@@deriving hash]
 end
 
+module Single_constructor_variant = struct
+  type t = Foo [@@deriving_inline hash]
+
+  let _ = fun (_ : t) -> ()
+
+  let (hash_fold_t : Ppx_hash_lib.Std.Hash.state -> t -> Ppx_hash_lib.Std.Hash.state) =
+    (fun hsv arg ->
+       match arg with
+       | Foo -> hsv
+      : Ppx_hash_lib.Std.Hash.state -> t -> Ppx_hash_lib.Std.Hash.state)
+  ;;
+
+  let _ = hash_fold_t
+
+  let (hash : t -> Ppx_hash_lib.Std.Hash.hash_value) =
+    let func arg =
+      Ppx_hash_lib.Std.Hash.get_hash_value
+        (let hsv = Ppx_hash_lib.Std.Hash.create () in
+         hash_fold_t hsv arg)
+    in
+    fun x -> func x
+  ;;
+
+  let _ = hash
+
+  [@@@deriving.end]
+end
+
+module Flat_variant = struct
+  type t =
+    | Foo
+    | Bar
+    | Baz
+  [@@deriving_inline hash]
+
+  let _ = fun (_ : t) -> ()
+
+  let (hash_fold_t : Ppx_hash_lib.Std.Hash.state -> t -> Ppx_hash_lib.Std.Hash.state) =
+    (fun hsv arg ->
+       Ppx_hash_lib.Std.Hash.fold_int
+         hsv
+         (match arg with
+          | Foo -> 0
+          | Bar -> 1
+          | Baz -> 2)
+      : Ppx_hash_lib.Std.Hash.state -> t -> Ppx_hash_lib.Std.Hash.state)
+  ;;
+
+  let _ = hash_fold_t
+
+  let (hash : t -> Ppx_hash_lib.Std.Hash.hash_value) =
+    let func arg =
+      Ppx_hash_lib.Std.Hash.get_hash_value
+        (let hsv = Ppx_hash_lib.Std.Hash.create () in
+         hash_fold_t hsv arg)
+    in
+    fun x -> func x
+  ;;
+
+  let _ = hash
+
+  [@@@deriving.end]
+end
+
 module String = struct
   include String
 

@@ -65,6 +65,20 @@ module Bench (Hash : Hash.S) = struct
       let%bench "hash d_10" = run hash_fold_d d10
       let%bench "hash d100" = run hash_fold_d d100
       let _ = c2, c10, c100, d10, d100
+
+      type enum =
+        | A
+        | B
+        | C
+        | D
+        | E
+        | F
+        | G
+        | H
+      [@@deriving hash]
+
+      let enum_list = [ A; B; C; D; E; F; G; H ]
+      let%bench "hash enum" = run (hash_fold_list hash_fold_enum) enum_list
     end)
   ;;
 end
