@@ -106,7 +106,8 @@ module No_builtin_support_for_array = struct
   type fail = int array [@@deriving hash]
 end
 
-[%%expect {|
+[%%expect
+  {|
 Line _, characters _-_:
 Error: Unbound value hash_fold_array
 |}]
@@ -124,21 +125,24 @@ Hint: Did you mean hash_fold_int?
 
 type fail = int -> int [@@deriving hash]
 
-[%%expect {|
+[%%expect
+  {|
 Line _, characters _-_:
 Error: ppx_hash: functions can not be hashed.
 |}]
 
 type fail = < f : int > [@@deriving hash]
 
-[%%expect {|
+[%%expect
+  {|
 Line _, characters _-_:
 Error: ppx_hash: unsupported type: < f: int   >
 |}]
 
 type fail = .. [@@deriving hash]
 
-[%%expect {|
+[%%expect
+  {|
 Line _, characters _-_:
 Error: ppx_hash: open types are not supported
 |}]
