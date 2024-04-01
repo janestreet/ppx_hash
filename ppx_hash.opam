@@ -14,6 +14,7 @@ depends: [
   "base"
   "ppx_compare"
   "ppx_sexp_conv"
+  "ppxlib_jane"
   "dune"          {>= "2.0.0"}
   "ppxlib"        {>= "0.28.0"}
 ]
