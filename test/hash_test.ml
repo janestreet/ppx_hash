@@ -52,7 +52,7 @@ module Single_constructor_variant = struct
     (fun hsv arg ->
        match arg with
        | Foo -> hsv
-      : Ppx_hash_lib.Std.Hash.state -> t -> Ppx_hash_lib.Std.Hash.state)
+     : Ppx_hash_lib.Std.Hash.state -> t -> Ppx_hash_lib.Std.Hash.state)
   ;;
 
   let _ = hash_fold_t
@@ -88,7 +88,7 @@ module Flat_variant = struct
           | Foo -> 0
           | Bar -> 1
           | Baz -> 2)
-      : Ppx_hash_lib.Std.Hash.state -> t -> Ppx_hash_lib.Std.Hash.state)
+     : Ppx_hash_lib.Std.Hash.state -> t -> Ppx_hash_lib.Std.Hash.state)
   ;;
 
   let _ = hash_fold_t

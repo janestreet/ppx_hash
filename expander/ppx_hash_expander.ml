@@ -254,7 +254,7 @@ and hash_fold_of_tuple ~loc tys value =
       elems1
       ~init:(Hsv_expr.identity ~loc)
       ~f:(fun (v, t) (result : Hsv_expr.t) ->
-      Hsv_expr.compose ~loc (hash_fold_of_ty t v) result))
+        Hsv_expr.compose ~loc (hash_fold_of_ty t v) result))
 
 and hash_variant ~loc row_fields value =
   let map row =
@@ -299,8 +299,12 @@ and branch_of_sum hsv ~loc cd =
   | Pcstr_tuple [] ->
     let pcnstr = pconstruct cd None in
     Hsv_expr.case ~guard:None ~lhs:pcnstr ~rhs:hsv
-  | Pcstr_tuple tps ->
-    let ids_ty = List.mapi tps ~f:(fun i ty -> Printf.sprintf "_a%d" i, ty) in
+  | Pcstr_tuple args ->
+    let ids_ty =
+      List.mapi args ~f:(fun i arg ->
+        let ty = Ppxlib_jane.Shim.Pcstr_tuple_arg.to_core_type arg in
+        Printf.sprintf "_a%d" i, ty)
+    in
     let lpatt = List.map ids_ty ~f:(fun (l, _ty) -> pvar ~loc l) |> ppat_tuple ~loc
     and body =
       List.fold_left ids_ty ~init:(Hsv_expr.identity ~loc) ~f:(fun expr (l, ty) ->
