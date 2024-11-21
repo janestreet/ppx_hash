@@ -197,10 +197,10 @@ let make_type_rigid ~type_name =
                  ())
             | _ -> ()
           in
-          match ty.ptyp_desc with
-          | Ptyp_var s ->
+          match Ppxlib_jane.Shim.Core_type_desc.of_parsetree ty.ptyp_desc with
+          | Ptyp_var (s, _) ->
             Ptyp_constr (Located.lident ~loc:ty.ptyp_loc (rigid_type_var ~type_name s), [])
-          | desc -> super#core_type_desc desc
+          | _ -> super#core_type_desc ty.ptyp_desc
         in
         { ty with ptyp_desc }
     end
@@ -218,7 +218,7 @@ let with_tuple loc (value : expr) xs (f : (expr * core_type) list -> Hsv_expr.t)
   let names = List.mapi ~f:(fun i lt -> Printf.sprintf "e%d" i, lt) xs in
   let pattern =
     let l = List.map ~f:(fun (n, (lbl, _)) -> lbl, pvar ~loc n) names in
-    Ppxlib_jane.Jane_syntax.Pattern.pat_of ~loc ~attrs:[] (Jpat_tuple (l, Closed))
+    Ppxlib_jane.Ast_builder.Default.ppat_tuple ~loc l Closed
   in
   let e = f (List.map ~f:(fun (n, (_lbl, t)) -> evar ~loc n, t) names) in
   let binding = value_binding ~loc ~pat:pattern ~expr:value in
@@ -374,21 +374,16 @@ and hash_fold_of_ty ty value =
   if core_type_is_ignored ty
   then hash_ignore ~loc value
   else (
-    match Ppxlib_jane.Jane_syntax.Core_type.of_ast ty with
-    | Some (Jtyp_tuple fields, _attrs) -> hash_fold_of_tuple ~loc fields value
-    | Some (Jtyp_layout _, _) | None ->
-      (match ty.ptyp_desc with
-       | Ptyp_constr _ -> hash_applied ty value
-       | Ptyp_tuple tys ->
-         hash_fold_of_tuple ~loc (List.map ~f:(fun t -> None, t) tys) value
-       | Ptyp_var name ->
-         Hsv_expr.invoke_hash_fold_t ~loc ~hash_fold_t:(evar ~loc (tp_name name)) ~t:value
-       | Ptyp_arrow _ ->
-         Hsv_expr.compile_error ~loc "ppx_hash: functions can not be hashed."
-       | Ptyp_variant (row_fields, Closed, _) -> hash_variant ~loc row_fields value
-       | _ ->
-         let s = string_of_core_type ty in
-         Hsv_expr.compile_error ~loc (Printf.sprintf "ppx_hash: unsupported type: %s" s)))
+    match Ppxlib_jane.Shim.Core_type_desc.of_parsetree ty.ptyp_desc with
+    | Ptyp_constr _ -> hash_applied ty value
+    | Ptyp_tuple tys -> hash_fold_of_tuple ~loc tys value
+    | Ptyp_var (name, _) ->
+      Hsv_expr.invoke_hash_fold_t ~loc ~hash_fold_t:(evar ~loc (tp_name name)) ~t:value
+    | Ptyp_arrow _ -> Hsv_expr.compile_error ~loc "ppx_hash: functions can not be hashed."
+    | Ptyp_variant (row_fields, Closed, _) -> hash_variant ~loc row_fields value
+    | _ ->
+      let s = string_of_core_type ty in
+      Hsv_expr.compile_error ~loc (Printf.sprintf "ppx_hash: unsupported type: %s" s))
 
 and hash_fold_of_ty_fun ~type_constraint ty =
   let loc = { ty.ptyp_loc with loc_ghost = true } in
