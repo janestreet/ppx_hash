@@ -1,4 +1,4 @@
-open Base
+open Stdppx
 open Ppxlib
 open Ast_builder.Default
 
@@ -442,9 +442,8 @@ let hash_fold_of_abstract ~loc type_name value =
       failwith [%e estring ~loc str]]
 ;;
 
-(** this does not change behavior (keeps the expression side-effect if any),
-    but it can make the compiler happy when the expression occurs on the rhs
-    of an [let rec] binding. *)
+(** this does not change behavior (keeps the expression side-effect if any), but it can
+    make the compiler happy when the expression occurs on the rhs of an [let rec] binding. *)
 let eta_expand ~loc f =
   [%expr
     let func = [%e f] in
@@ -477,7 +476,7 @@ let hash_of_ty_fun ~special_case_simple_types ~type_constraint ty =
            [%e hsv_expr])]
 ;;
 
-let hash_structure_item_of_td td =
+let hash_structure_item_of_td td ~portable =
   let loc = td.ptype_loc in
   match td.ptype_params with
   | _ :: _ -> []
@@ -506,18 +505,25 @@ let hash_structure_item_of_td td =
                ; ptyp_desc = Ptyp_constr ({ loc; txt = Lident td.ptype_name.txt }, [])
                } )
        in
-       expected_scope, value_binding ~loc ~pat ~expr:(eta_expand ~loc expr))
+       ( expected_scope
+       , Ppxlib_jane.Ast_builder.Default.value_binding
+           ~loc
+           ~pat
+           ~expr:(eta_expand ~loc expr)
+           ~modes:(if portable then [ { loc; txt = Mode "portable" } ] else []) ))
     ]
 ;;
 
-let hash_fold_structure_item_of_td td ~rec_flag =
+let hash_fold_structure_item_of_td td ~rec_flag ~portable =
   let loc = { td.ptype_loc with loc_ghost = true } in
   let arg = "arg" in
   let body =
     let v = evar ~loc arg in
-    match td.ptype_kind with
+    match Ppxlib_jane.Shim.Type_kind.of_parsetree td.ptype_kind with
     | Ptype_variant cds -> hash_sum ~loc cds v
     | Ptype_record lds -> hash_fold_of_record ~loc lds v
+    | Ptype_record_unboxed_product _ ->
+      Hsv_expr.compile_error ~loc "ppx_hash: unboxed record types are not supported"
     | Ptype_open -> Hsv_expr.compile_error ~loc "ppx_hash: open types are not supported"
     | Ptype_abstract ->
       (match td.ptype_manifest with
@@ -557,7 +563,11 @@ let hash_fold_structure_item_of_td td ~rec_flag =
         ~init:(pexp_constraint ~loc expr (make_type_rigid ~type_name scheme)))
     else expr
   in
-  value_binding ~loc ~pat ~expr
+  Ppxlib_jane.Ast_builder.Default.value_binding
+    ~loc
+    ~pat
+    ~expr
+    ~modes:(if portable then [ { txt = Mode "portable"; loc } ] else [])
 ;;
 
 let pstr_value ~loc rec_flag bindings =
@@ -568,7 +578,7 @@ let pstr_value ~loc rec_flag bindings =
     [ pstr_value ~loc rec_flag nonempty_bindings ]
 ;;
 
-let str_type_decl ~loc ~path:_ (rec_flag, tds) =
+let str_type_decl ~loc ~path:_ (rec_flag, tds) ~portable =
   let tds = List.map tds ~f:name_type_params_in_td in
   let rec_flag =
     (object
@@ -584,8 +594,12 @@ let str_type_decl ~loc ~path:_ (rec_flag, tds) =
       #go
       ()
   in
-  let hash_fold_bindings = List.map ~f:(hash_fold_structure_item_of_td ~rec_flag) tds in
-  let hash_bindings = List.concat (List.map ~f:hash_structure_item_of_td tds) in
+  let hash_fold_bindings =
+    List.map ~f:(hash_fold_structure_item_of_td ~rec_flag ~portable) tds
+  in
+  let hash_bindings =
+    List.concat (List.map ~f:(hash_structure_item_of_td ~portable) tds)
+  in
   match rec_flag with
   | Recursive ->
     (* if we wanted to maximize the scope hygiene here this would be, in this order:
@@ -596,15 +610,17 @@ let str_type_decl ~loc ~path:_ (rec_flag, tds) =
     pstr_value ~loc Recursive (hash_fold_bindings @ List.map ~f:snd hash_bindings)
   | Nonrecursive ->
     let rely_on_hash_fold_t, use_rhs =
-      List.partition_map hash_bindings ~f:(function
-        | `uses_hash_fold_t_being_defined, binding -> First binding
-        | `uses_rhs, binding -> Second binding)
+      List.partition_map
+        (function
+          | `uses_hash_fold_t_being_defined, binding -> Left binding
+          | `uses_rhs, binding -> Right binding)
+        hash_bindings
     in
     pstr_value ~loc Nonrecursive (hash_fold_bindings @ use_rhs)
     @ pstr_value ~loc Nonrecursive rely_on_hash_fold_t
 ;;
 
-let mk_sig ~loc:_ ~path:_ (_rec_flag, tds) =
+let mk_sig ~loc:_ ~path:_ (_rec_flag, tds) ~portable =
   List.concat
     (List.map tds ~f:(fun td ->
        let monomorphic = List.is_empty td.ptype_params in
@@ -617,10 +633,11 @@ let mk_sig ~loc:_ ~path:_ (_rec_flag, tds) =
          let loc = td.ptype_loc in
          psig_value
            ~loc
-           (value_description
+           (Ppxlib_jane.Ast_builder.Default.value_description
               ~loc
               ~name:{ td.ptype_name with txt = name }
               ~type_
+              ~modalities:(if portable then [ Ppxlib_jane.Modality "portable" ] else [])
               ~prim:[])
        in
        List.concat
@@ -629,7 +646,7 @@ let mk_sig ~loc:_ ~path:_ (_rec_flag, tds) =
          ]))
 ;;
 
-let sig_type_decl ~loc ~path (rec_flag, tds) =
+let sig_type_decl ~loc ~path (rec_flag, tds) ~portable =
   match
     mk_named_sig
       ~loc
@@ -637,8 +654,14 @@ let sig_type_decl ~loc ~path (rec_flag, tds) =
       ~handle_polymorphic_variant:true
       tds
   with
-  | Some include_info -> [ psig_include ~loc include_info ]
-  | None -> mk_sig ~loc ~path (rec_flag, tds)
+  | Some include_info ->
+    [ Ppxlib_jane.Ast_builder.Default.psig_include
+        ~loc
+        ~modalities:
+          (if portable then [ Loc.make ~loc (Ppxlib_jane.Modality "portable") ] else [])
+        include_info
+    ]
+  | None -> mk_sig ~loc ~path (rec_flag, tds) ~portable
 ;;
 
 let hash_fold_core_type ty = hash_fold_of_ty_fun ~type_constraint:true ty

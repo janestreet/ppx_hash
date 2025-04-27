@@ -1,0 +1,14 @@
+(library
+ (foreign_stubs
+  (language c)
+  (names internalhash_stubs))
+ (name base_internalhash_types)
+ (public_name ppx_hash.base_internalhash_types)
+ (libraries)
+ (preprocess no_preprocessing)
+ (js_of_ocaml
+  (javascript_files runtime.js))
+ (install_c_headers internalhash)
+ (wasm_of_ocaml
+  (javascript_files runtime.js)
+  (wasm_files runtime.wat)))
