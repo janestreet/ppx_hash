@@ -13,10 +13,12 @@ val str_type_decl
   :  loc:Location.t
   -> path:string
   -> rec_flag * type_declaration list
+  -> portable:bool
   -> structure
 
 val sig_type_decl
   :  loc:Location.t
   -> path:string
   -> rec_flag * type_declaration list
+  -> portable:bool
   -> signature_item list

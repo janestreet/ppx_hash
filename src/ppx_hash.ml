@@ -25,10 +25,16 @@ let () =
     (Deriving.add
        name
        ~str_type_decl:
-         (Deriving.Generator.make_noarg
-            Ppx_hash_expander.str_type_decl
+         (Deriving.Generator.make
+            Deriving.Args.(empty +> flag "portable")
+            (fun ~loc ~path tds portable ->
+              Ppx_hash_expander.str_type_decl ~loc ~path tds ~portable)
             ~attributes:Ppx_hash_expander.str_attributes)
-       ~sig_type_decl:(Deriving.Generator.make_noarg Ppx_hash_expander.sig_type_decl)
+       ~sig_type_decl:
+         (Deriving.Generator.make
+            Deriving.Args.(empty +> flag "portable")
+            (fun ~loc ~path tds portable ->
+              Ppx_hash_expander.sig_type_decl ~loc ~path tds ~portable))
        ~extension:(fun ~loc:_ ~path:_ ty -> Ppx_hash_expander.hash_core_type ty));
   Driver.register_transformation
     name
