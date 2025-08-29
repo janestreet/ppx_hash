@@ -58,6 +58,29 @@ let should_ignore_label_declaration ld =
   | Some () -> `ignore, Some (attribute_of_warning ld.pld_loc warning)
 ;;
 
+let special_case_types_named_t = function
+  | `hash_fold -> false
+  | `hash -> true
+;;
+
+let hash_fold_ ?functor_ tn =
+  match functor_, tn with
+  | None, "t" when special_case_types_named_t `hash_fold -> "hash_fold"
+  | None, _ -> "hash_fold_" ^ tn
+  | Some path, _ -> Printf.sprintf "hash_fold_%s__%s" path tn
+;;
+
+let hash_ ?functor_ tn =
+  match functor_, tn with
+  | None, "t" when special_case_types_named_t `hash -> "hash"
+  | None, _ -> "hash_" ^ tn
+  | Some path, _ -> Printf.sprintf "hash_%s__%s" path tn
+;;
+
+(* The only names we assume to be in scope are [hash_fold_<TY>]
+   So we are sure [tp_name] (which start with an [_]) will not capture them. *)
+let tp_name n = Printf.sprintf "_hash_fold_%s" n
+
 (* Generate code to compute hash values of type [t] in folding style, following the structure of
    the type.  Incorporate all structure when computing hash values, to maximise hash
    quality. Don't attempt to detect/avoid cycles - just loop. *)
@@ -69,9 +92,36 @@ let hash_fold_type ~loc ty =
   [%type: [%t hash_state_t ~loc] -> [%t ty] -> [%t hash_state_t ~loc]]
 ;;
 
+let hash_fold_pattern ~loc ty =
+  let loc = { loc with loc_ghost = true } in
+  match Ppxlib_jane.Shim.Core_type_desc.of_parsetree ty.ptyp_desc with
+  | Ptyp_constr (id, _) -> Ppx_helpers.type_constr_conv_pat ~loc:id.loc id ~f:hash_fold_
+  | Ptyp_var (id, _) ->
+    [%pat? ([%p pvar ~loc (tp_name id)] : [%t hash_fold_type ~loc ty])]
+  | _ ->
+    Ast_builder.Default.ppat_extension
+      ~loc
+      (Location.error_extensionf
+         ~loc
+         "Only type variables and constructors are allowed here (e.g. ['a], [t], ['a t], \
+          or [M(X).t]).")
+;;
+
 let hash_type ~loc ty =
   let loc = { loc with loc_ghost = true } in
   [%type: [%t ty] -> Ppx_hash_lib.Std.Hash.hash_value]
+;;
+
+let hash_pattern ~loc ty =
+  let loc = { loc with loc_ghost = true } in
+  match Ppxlib_jane.Shim.Core_type_desc.of_parsetree ty.ptyp_desc with
+  | Ptyp_constr (id, _) -> Ppx_helpers.type_constr_conv_pat ~loc:id.loc id ~f:hash_
+  | _ ->
+    Ast_builder.Default.ppat_extension
+      ~loc
+      (Location.error_extensionf
+         ~loc
+         "Only type constructors are allowed here (e.g. [t], ['a t], or [M(X).t]).")
 ;;
 
 (* [expr] is an expression that doesn't use the [hsv] variable.
@@ -147,23 +197,6 @@ let hash_fold_int_expr ~loc i_expr : Hsv_expr.t =
 
 let hash_fold_int ~loc i : Hsv_expr.t = hash_fold_int_expr ~loc (eint ~loc i)
 
-let special_case_types_named_t = function
-  | `hash_fold -> false
-  | `hash -> true
-;;
-
-let hash_fold_ tn =
-  match tn with
-  | "t" when special_case_types_named_t `hash_fold -> "hash_fold"
-  | _ -> "hash_fold_" ^ tn
-;;
-
-let hash_ tn =
-  match tn with
-  | "t" when special_case_types_named_t `hash -> "hash"
-  | _ -> "hash_" ^ tn
-;;
-
 (** renames [x] avoiding collision with [type_name] *)
 let rigid_type_var ~type_name x =
   let prefix = "rigid_" in
@@ -207,10 +240,6 @@ let make_type_rigid ~type_name =
   in
   map#core_type
 ;;
-
-(* The only names we assume to be in scope are [hash_fold_<TY>]
-   So we are sure [tp_name] (which start with an [_]) will not capture them. *)
-let tp_name n = Printf.sprintf "_hash_fold_%s" n
 
 let with_tuple loc (value : expr) xs (f : (expr * core_type) list -> Hsv_expr.t)
   : Hsv_expr.t
@@ -294,7 +323,7 @@ let rec hash_applied ~ctx ty value =
     let args = List.map ta ~f:(hash_fold_of_ty_fun ~ctx ~type_constraint:false) in
     Hsv_expr.invoke_hash_fold_t
       ~loc
-      ~hash_fold_t:(type_constr_conv ~loc name ~f:hash_fold_ args)
+      ~hash_fold_t:(Ppx_helpers.type_constr_conv_expr ~loc name ~f:hash_fold_ args)
       ~t:value
   | _ -> assert false
 
@@ -523,7 +552,7 @@ let hash_of_ty_fun ~ctx ~special_case_simple_types ~type_constraint ty =
   in
   match recognize_simple_type ty with
   | Some lident when special_case_simple_types ->
-    unapplied_type_constr_conv ~loc lident ~f:hash_
+    Ppx_helpers.type_constr_conv_expr ~loc lident [] ~f:hash_
   | _ ->
     let hsv_pat, hsv_expr =
       Hsv_expr.to_expression ~loc (hash_fold_of_ty ~ctx ty (evar ~loc arg))
@@ -600,13 +629,15 @@ let hash_fold_structure_item_of_td td ~rec_flag ~portable =
           | Ptyp_variant (row_fields, _, _) -> hash_variant ~ctx ~loc row_fields v
           | _ -> hash_fold_of_ty ~ctx ty v))
   in
-  let vars = List.map td.ptype_params ~f:(fun p -> get_type_param_name p) in
-  let extra_names = List.map vars ~f:(fun x -> tp_name x.txt) in
+  let vars = List.map td.ptype_params ~f:Ppxlib_jane.get_type_param_name_and_jkind in
+  let extra_names = List.map vars ~f:(fun (x, _) -> tp_name x.txt) in
   let hsv_pat, hsv_expr = Hsv_expr.to_expression ~loc body in
   let patts = List.map extra_names ~f:(pvar ~loc) @ [ hsv_pat; pvar ~loc arg ] in
   let bnd = pvar ~loc (hash_fold_ td.ptype_name.txt) in
   let scheme = combinator_type_of_type_declaration td ~f:hash_fold_type in
-  let pat = ppat_constraint ~loc bnd (ptyp_poly ~loc vars scheme) in
+  let pat =
+    ppat_constraint ~loc bnd (Ppxlib_jane.Ast_builder.Default.ptyp_poly ~loc vars scheme)
+  in
   let expr =
     eta_reduce_if_possible_and_nonrec ~rec_flag (eabstract ~loc patts hsv_expr)
   in
@@ -621,8 +652,11 @@ let hash_fold_structure_item_of_td td ~rec_flag ~portable =
       let type_name = td.ptype_name.txt in
       List.fold_right
         vars
-        ~f:(fun s ->
-          pexp_newtype ~loc { txt = rigid_type_var ~type_name s.txt; loc = s.loc })
+        ~f:(fun (s, jkind) ->
+          Ppxlib_jane.Ast_builder.Default.pexp_newtype
+            ~loc
+            (Loc.map s ~f:(rigid_type_var ~type_name))
+            jkind)
         ~init:(pexp_constraint ~loc expr (make_type_rigid ~type_name scheme)))
     else expr
   in
@@ -681,6 +715,24 @@ let str_type_decl ~loc ~path:_ (rec_flag, tds) ~portable =
     in
     pstr_value ~loc Nonrecursive (hash_fold_bindings @ use_rhs)
     @ pstr_value ~loc Nonrecursive rely_on_hash_fold_t
+;;
+
+(** As [Ppxlib.combinator_type_of_type_declaration], plus [Ptyp_poly] annotations for any
+    variables with nondefault jkind. This is needed for type parameters with non-value
+    layouts. *)
+let combinator_type_of_type_declaration td ~f =
+  (* We have to name the params first to avoid repeating the gensym for [ptyp_any]. *)
+  let td = name_type_params_in_td td in
+  let loc = td.ptype_loc in
+  let vars =
+    List.filter_map td.ptype_params ~f:(fun tp ->
+      let ((_, jkind) as res) = Ppxlib_jane.get_type_param_name_and_jkind tp in
+      if Option.is_some jkind then Some res else None)
+  in
+  Ppxlib_jane.Ast_builder.Default.ptyp_poly
+    ~loc
+    vars
+    (combinator_type_of_type_declaration td ~f)
 ;;
 
 let mk_sig ~loc:_ ~path:_ (_rec_flag, tds) ~portable =
