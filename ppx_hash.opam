@@ -12,6 +12,7 @@ build: [
 depends: [
   "ocaml" {>= "5.1.0"}
   "ppx_compare"
+  "ppx_helpers"
   "ppx_sexp_conv"
   "ppxlib_jane"
   "dune"                {>= "3.17.0"}
