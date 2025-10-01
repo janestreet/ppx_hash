@@ -6,9 +6,10 @@ A ppx writer that generates hash functions from type expressions and definitions
 Syntax
 ------
 
-Type definitions: `[@@deriving hash]`
-Expressions: `[%hash_fold: TYPE]` and `[%hash: TYPE]`
-Types, record fields: `[@hash.ignore]`
+- Type definitions: `[@@deriving hash]`
+- Expressions: `[%hash_fold: TYPE]` and `[%hash: TYPE]`
+- Types, record fields: `[@hash.ignore]`
+- Types: `[@hash.custom CUSTOM_IMPLEMENTATION]`
 
 Basic usage
 -----------
@@ -72,6 +73,18 @@ Special support for `ppx_compare`
 The annotation `[@compare.ignore]` (and `[@ignore]`) implies
 `[@hash.ignore]`, in order to preserve the invariant that `compare x y
 = 0` implies `hash x = hash y`.
+
+Overriding implementation for parts of types
+------------------------------------------
+
+You can use `[@hash.custom EXPR]` to provide a custom implementation for part of a type:
+
+
+```ocaml
+type t = { x : (int[@hash.custom fun state x -> Int.hash_fold_t state (-x)]) }
+[@@deriving hash]
+
+```
 
 Adapting code to `ppx_hash`
 ---------------------------

@@ -15,6 +15,14 @@ module Attrs = struct
     Attribute.declare "hash.ignore" Attribute.Context.core_type Ast_pattern.(pstr nil) ()
   ;;
 
+  let custom_core_type =
+    Attribute.declare
+      "@hash.custom"
+      Attribute.Context.core_type
+      Ast_pattern.(single_expr_payload __)
+      Fn.id
+  ;;
+
   let no_hashing_label_declaration =
     Attribute.declare
       "hash.no_hashing"
@@ -28,6 +36,7 @@ let str_attributes =
   [ Attribute.T Attrs.ignore_core_type
   ; Attribute.T Attrs.ignore_label_declaration
   ; Attribute.T Attrs.no_hashing_label_declaration
+  ; Attribute.T Attrs.custom_core_type
   ]
 ;;
 
@@ -39,6 +48,27 @@ let core_type_is_ignored ct =
   is_ignored_gen
     [ Attrs.ignore_core_type; Ppx_compare_expander.Compare.Attrs.ignore_core_type ]
     ct
+;;
+
+let core_type_custom_implementation ty =
+  let custom_implementation = Attribute.get Attrs.custom_core_type ty in
+  match custom_implementation with
+  | Some custom_implementation -> Some custom_implementation
+  | None ->
+    let ppx_compare_custom_implementation =
+      Attribute.get
+        Ppx_compare_expander.Compare.Attrs.custom_core_type
+        ty
+        ~mark_as_seen:false
+    in
+    (match ppx_compare_custom_implementation with
+     | None -> None
+     | Some _ ->
+       Location.raise_errorf
+         "Using [@@compare.custom] without [@@hash.custom] is not allowed, because it \
+          would be easy violate the invariant that [compare x y = 0] implies [hash x = \
+          hash y]. You should provide a custom comparison function that upholds this \
+          invariant.")
 ;;
 
 let should_ignore_label_declaration ld =
@@ -455,25 +485,33 @@ and hash_fold_of_ty ~ctx ty value =
   if core_type_is_ignored ty
   then hash_ignore ~loc value
   else (
-    match Ppxlib_jane.Shim.Core_type_desc.of_parsetree ty.ptyp_desc with
-    | Ptyp_constr _ -> hash_applied ~ctx ty value
-    | Ptyp_tuple tys -> hash_fold_of_tuple ~ctx ~loc tys value
-    | Ptyp_var (name, _) ->
-      (match Context.rename ctx name with
-       | Some name ->
-         Hsv_expr.invoke_hash_fold_t ~loc ~hash_fold_t:(evar ~loc (tp_name name)) ~t:value
-       | None ->
-         Hsv_expr.compile_error
-           ~loc
-           ("ppx_hash: variable is not a parameter of the type constructor.\n\
-             Hint: mark appearances of '"
-            ^ name
-            ^ " as [@hash.ignore]."))
-    | Ptyp_arrow _ -> Hsv_expr.compile_error ~loc "ppx_hash: functions can not be hashed."
-    | Ptyp_variant (row_fields, Closed, _) -> hash_variant ~ctx ~loc row_fields value
-    | _ ->
-      let s = string_of_core_type ty in
-      Hsv_expr.compile_error ~loc (Printf.sprintf "ppx_hash: unsupported type: %s" s))
+    match core_type_custom_implementation ty with
+    | Some custom_implementation ->
+      Hsv_expr.invoke_hash_fold_t ~loc ~hash_fold_t:custom_implementation ~t:value
+    | None ->
+      (match Ppxlib_jane.Shim.Core_type_desc.of_parsetree ty.ptyp_desc with
+       | Ptyp_constr _ -> hash_applied ~ctx ty value
+       | Ptyp_tuple tys -> hash_fold_of_tuple ~ctx ~loc tys value
+       | Ptyp_var (name, _) ->
+         (match Context.rename ctx name with
+          | Some name ->
+            Hsv_expr.invoke_hash_fold_t
+              ~loc
+              ~hash_fold_t:(evar ~loc (tp_name name))
+              ~t:value
+          | None ->
+            Hsv_expr.compile_error
+              ~loc
+              ("ppx_hash: variable is not a parameter of the type constructor.\n\
+                Hint: mark appearances of '"
+               ^ name
+               ^ " as [@hash.ignore]."))
+       | Ptyp_arrow _ ->
+         Hsv_expr.compile_error ~loc "ppx_hash: functions can not be hashed."
+       | Ptyp_variant (row_fields, Closed, _) -> hash_variant ~ctx ~loc row_fields value
+       | _ ->
+         let s = string_of_core_type ty in
+         Hsv_expr.compile_error ~loc (Printf.sprintf "ppx_hash: unsupported type: %s" s)))
 
 and hash_fold_of_ty_fun ~ctx ~type_constraint ty =
   let loc = { ty.ptyp_loc with loc_ghost = true } in
@@ -571,7 +609,10 @@ let hash_structure_item_of_td td ~portable =
   | _ :: _ -> []
   | [] ->
     [ (let bnd = pvar ~loc (hash_ td.ptype_name.txt) in
-       let typ = combinator_type_of_type_declaration td ~f:hash_type in
+       let typ =
+         Ppx_helpers.combinator_type_of_type_declaration td ~f:hash_type
+         |> Ppx_helpers.Polytype.to_core_type
+       in
        let pat = ppat_constraint ~loc bnd typ in
        let expected_scope, expr =
          let is_simple_type ty =
@@ -634,10 +675,8 @@ let hash_fold_structure_item_of_td td ~rec_flag ~portable =
   let hsv_pat, hsv_expr = Hsv_expr.to_expression ~loc body in
   let patts = List.map extra_names ~f:(pvar ~loc) @ [ hsv_pat; pvar ~loc arg ] in
   let bnd = pvar ~loc (hash_fold_ td.ptype_name.txt) in
-  let scheme = combinator_type_of_type_declaration td ~f:hash_fold_type in
-  let pat =
-    ppat_constraint ~loc bnd (Ppxlib_jane.Ast_builder.Default.ptyp_poly ~loc vars scheme)
-  in
+  let scheme = Ppx_helpers.combinator_type_of_type_declaration td ~f:hash_fold_type in
+  let pat = ppat_constraint ~loc bnd (scheme |> Ppx_helpers.Polytype.to_core_type) in
   let expr =
     eta_reduce_if_possible_and_nonrec ~rec_flag (eabstract ~loc patts hsv_expr)
   in
@@ -649,6 +688,7 @@ let hash_fold_structure_item_of_td td ~rec_flag ~portable =
   let expr =
     if use_rigid_variables
     then (
+      let { body = scheme; vars = _; loc = _ } : Ppx_helpers.Polytype.t = scheme in
       let type_name = td.ptype_name.txt in
       List.fold_right
         vars
@@ -717,30 +757,15 @@ let str_type_decl ~loc ~path:_ (rec_flag, tds) ~portable =
     @ pstr_value ~loc Nonrecursive rely_on_hash_fold_t
 ;;
 
-(** As [Ppxlib.combinator_type_of_type_declaration], plus [Ptyp_poly] annotations for any
-    variables with nondefault jkind. This is needed for type parameters with non-value
-    layouts. *)
-let combinator_type_of_type_declaration td ~f =
-  (* We have to name the params first to avoid repeating the gensym for [ptyp_any]. *)
-  let td = name_type_params_in_td td in
-  let loc = td.ptype_loc in
-  let vars =
-    List.filter_map td.ptype_params ~f:(fun tp ->
-      let ((_, jkind) as res) = Ppxlib_jane.get_type_param_name_and_jkind tp in
-      if Option.is_some jkind then Some res else None)
-  in
-  Ppxlib_jane.Ast_builder.Default.ptyp_poly
-    ~loc
-    vars
-    (combinator_type_of_type_declaration td ~f)
-;;
-
 let mk_sig ~loc:_ ~path:_ (_rec_flag, tds) ~portable =
   List.concat
     (List.map tds ~f:(fun td ->
        let monomorphic = List.is_empty td.ptype_params in
        let definition ~f_type ~f_name =
-         let type_ = combinator_type_of_type_declaration td ~f:f_type in
+         let type_ =
+           Ppx_helpers.combinator_type_of_type_declaration td ~f:f_type
+           |> Ppx_helpers.Polytype.to_core_type
+         in
          let name =
            let tn = td.ptype_name.txt in
            f_name tn
