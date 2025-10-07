@@ -76,8 +76,9 @@ module type Builtin_hash_fold_intf = sig @@ portable
   val hash_fold_string : string folder
   val hash_fold_float : float folder
   val hash_fold_unit : unit folder
-  val hash_fold_option : 'a folder -> 'a option folder
-  val hash_fold_list : 'a folder -> 'a list folder
+  val hash_fold_option : ('a : value_or_null). 'a folder -> 'a option folder
+  val hash_fold_or_null : 'a folder -> 'a Basement.Or_null_shim.t folder
+  val hash_fold_list : ('a : value_or_null). 'a folder -> 'a list folder
   val hash_fold_lazy_t : 'a folder -> 'a lazy_t folder
 
   (** Hash support for [array] and [ref] is provided, but is potentially DANGEROUS, since

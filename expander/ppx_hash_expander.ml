@@ -15,6 +15,14 @@ module Attrs = struct
     Attribute.declare "hash.ignore" Attribute.Context.core_type Ast_pattern.(pstr nil) ()
   ;;
 
+  let custom_core_type =
+    Attribute.declare
+      "@hash.custom"
+      Attribute.Context.core_type
+      Ast_pattern.(single_expr_payload __)
+      Fn.id
+  ;;
+
   let no_hashing_label_declaration =
     Attribute.declare
       "hash.no_hashing"
@@ -28,6 +36,7 @@ let str_attributes =
   [ Attribute.T Attrs.ignore_core_type
   ; Attribute.T Attrs.ignore_label_declaration
   ; Attribute.T Attrs.no_hashing_label_declaration
+  ; Attribute.T Attrs.custom_core_type
   ]
 ;;
 
@@ -39,6 +48,27 @@ let core_type_is_ignored ct =
   is_ignored_gen
     [ Attrs.ignore_core_type; Ppx_compare_expander.Compare.Attrs.ignore_core_type ]
     ct
+;;
+
+let core_type_custom_implementation ty =
+  let custom_implementation = Attribute.get Attrs.custom_core_type ty in
+  match custom_implementation with
+  | Some custom_implementation -> Some custom_implementation
+  | None ->
+    let ppx_compare_custom_implementation =
+      Attribute.get
+        Ppx_compare_expander.Compare.Attrs.custom_core_type
+        ty
+        ~mark_as_seen:false
+    in
+    (match ppx_compare_custom_implementation with
+     | None -> None
+     | Some _ ->
+       Location.raise_errorf
+         "Using [@@compare.custom] without [@@hash.custom] is not allowed, because it \
+          would be easy violate the invariant that [compare x y = 0] implies [hash x = \
+          hash y]. You should provide a custom comparison function that upholds this \
+          invariant.")
 ;;
 
 let should_ignore_label_declaration ld =
@@ -58,6 +88,29 @@ let should_ignore_label_declaration ld =
   | Some () -> `ignore, Some (attribute_of_warning ld.pld_loc warning)
 ;;
 
+let special_case_types_named_t = function
+  | `hash_fold -> false
+  | `hash -> true
+;;
+
+let hash_fold_ ?functor_ tn =
+  match functor_, tn with
+  | None, "t" when special_case_types_named_t `hash_fold -> "hash_fold"
+  | None, _ -> "hash_fold_" ^ tn
+  | Some path, _ -> Printf.sprintf "hash_fold_%s__%s" path tn
+;;
+
+let hash_ ?functor_ tn =
+  match functor_, tn with
+  | None, "t" when special_case_types_named_t `hash -> "hash"
+  | None, _ -> "hash_" ^ tn
+  | Some path, _ -> Printf.sprintf "hash_%s__%s" path tn
+;;
+
+(* The only names we assume to be in scope are [hash_fold_<TY>]
+   So we are sure [tp_name] (which start with an [_]) will not capture them. *)
+let tp_name n = Printf.sprintf "_hash_fold_%s" n
+
 (* Generate code to compute hash values of type [t] in folding style, following the structure of
    the type.  Incorporate all structure when computing hash values, to maximise hash
    quality. Don't attempt to detect/avoid cycles - just loop. *)
@@ -69,9 +122,36 @@ let hash_fold_type ~loc ty =
   [%type: [%t hash_state_t ~loc] -> [%t ty] -> [%t hash_state_t ~loc]]
 ;;
 
+let hash_fold_pattern ~loc ty =
+  let loc = { loc with loc_ghost = true } in
+  match Ppxlib_jane.Shim.Core_type_desc.of_parsetree ty.ptyp_desc with
+  | Ptyp_constr (id, _) -> Ppx_helpers.type_constr_conv_pat ~loc:id.loc id ~f:hash_fold_
+  | Ptyp_var (id, _) ->
+    [%pat? ([%p pvar ~loc (tp_name id)] : [%t hash_fold_type ~loc ty])]
+  | _ ->
+    Ast_builder.Default.ppat_extension
+      ~loc
+      (Location.error_extensionf
+         ~loc
+         "Only type variables and constructors are allowed here (e.g. ['a], [t], ['a t], \
+          or [M(X).t]).")
+;;
+
 let hash_type ~loc ty =
   let loc = { loc with loc_ghost = true } in
   [%type: [%t ty] -> Ppx_hash_lib.Std.Hash.hash_value]
+;;
+
+let hash_pattern ~loc ty =
+  let loc = { loc with loc_ghost = true } in
+  match Ppxlib_jane.Shim.Core_type_desc.of_parsetree ty.ptyp_desc with
+  | Ptyp_constr (id, _) -> Ppx_helpers.type_constr_conv_pat ~loc:id.loc id ~f:hash_
+  | _ ->
+    Ast_builder.Default.ppat_extension
+      ~loc
+      (Location.error_extensionf
+         ~loc
+         "Only type constructors are allowed here (e.g. [t], ['a t], or [M(X).t]).")
 ;;
 
 (* [expr] is an expression that doesn't use the [hsv] variable.
@@ -147,23 +227,6 @@ let hash_fold_int_expr ~loc i_expr : Hsv_expr.t =
 
 let hash_fold_int ~loc i : Hsv_expr.t = hash_fold_int_expr ~loc (eint ~loc i)
 
-let special_case_types_named_t = function
-  | `hash_fold -> false
-  | `hash -> true
-;;
-
-let hash_fold_ tn =
-  match tn with
-  | "t" when special_case_types_named_t `hash_fold -> "hash_fold"
-  | _ -> "hash_fold_" ^ tn
-;;
-
-let hash_ tn =
-  match tn with
-  | "t" when special_case_types_named_t `hash -> "hash"
-  | _ -> "hash_" ^ tn
-;;
-
 (** renames [x] avoiding collision with [type_name] *)
 let rigid_type_var ~type_name x =
   let prefix = "rigid_" in
@@ -208,10 +271,6 @@ let make_type_rigid ~type_name =
   map#core_type
 ;;
 
-(* The only names we assume to be in scope are [hash_fold_<TY>]
-   So we are sure [tp_name] (which start with an [_]) will not capture them. *)
-let tp_name n = Printf.sprintf "_hash_fold_%s" n
-
 let with_tuple loc (value : expr) xs (f : (expr * core_type) list -> Hsv_expr.t)
   : Hsv_expr.t
   =
@@ -237,26 +296,76 @@ let ghostify_located (t : 'a loc) : 'a loc =
   { t with loc = { t.loc with loc_ghost = true } }
 ;;
 
-let rec hash_applied ty value =
+module Context = struct
+  type t =
+    | Empty
+    | Type_decl of
+        { parameters : string list
+        ; rename : string String.Map.t
+        (* Map from variant case parameter names to type-decl parameter names.*)
+        }
+
+  let empty = Empty
+
+  let type_decl td =
+    let parameters =
+      List.map td.ptype_params ~f:(fun (param, _) ->
+        match Ppxlib_jane.Shim.Core_type_desc.of_parsetree param.ptyp_desc with
+        | Ptyp_var (name, _) -> name
+        | _ -> assert false)
+    in
+    let rename = List.combine parameters parameters |> String.Map.of_list in
+    Type_decl { parameters; rename }
+  ;;
+
+  let with_constructor_decl t cd =
+    match t with
+    | Empty -> (* unreachable? *) Empty
+    | Type_decl { parameters; rename } ->
+      let count = List.length parameters in
+      Type_decl
+        { parameters
+        ; rename =
+            (match cd.pcd_res with
+             | Some { ptyp_desc = Ptyp_constr (_, cd_parameters); _ }
+               when List.length cd_parameters = count ->
+               List.combine cd_parameters parameters
+               |> List.filter_map ~f:(fun (key, value) ->
+                 match Ppxlib_jane.Shim.Core_type_desc.of_parsetree key.ptyp_desc with
+                 | Ptyp_var (key, _) -> Some (key, value)
+                 | _ -> None)
+               |> String.Map.of_list
+             | _ -> rename)
+        }
+  ;;
+
+  let rename t name =
+    match t with
+    | Empty -> Some name
+    | Type_decl { rename; _ } -> String.Map.find_opt name rename
+  ;;
+end
+
+let rec hash_applied ~ctx ty value =
   let loc = { ty.ptyp_loc with loc_ghost = true } in
   match ty.ptyp_desc with
   | Ptyp_constr (name, ta) ->
-    let args = List.map ta ~f:(hash_fold_of_ty_fun ~type_constraint:false) in
+    let args = List.map ta ~f:(hash_fold_of_ty_fun ~ctx ~type_constraint:false) in
     Hsv_expr.invoke_hash_fold_t
       ~loc
-      ~hash_fold_t:(type_constr_conv ~loc name ~f:hash_fold_ args)
+      ~hash_fold_t:(Ppx_helpers.type_constr_conv_expr ~loc name ~f:hash_fold_ args)
       ~t:value
   | _ -> assert false
 
-and hash_fold_of_tuple ~loc tys value =
+and hash_fold_of_tuple ~ctx ~loc tys value =
   with_tuple loc value tys (fun elems1 ->
     List.fold_right
       elems1
       ~init:(Hsv_expr.identity ~loc)
       ~f:(fun (v, t) (result : Hsv_expr.t) ->
-        Hsv_expr.compose ~loc (hash_fold_of_ty t v) result))
+        Hsv_expr.compose ~loc (hash_fold_of_ty ~ctx t v) result))
 
-and hash_variant ~loc row_fields value =
+and hash_variant ~ctx ~loc row_fields value =
   let map row =
     match row.prf_desc with
     | Rtag ({ txt = cnstr; _ }, true, _) | Rtag ({ txt = cnstr; _ }, _, []) ->
@@ -270,7 +379,7 @@ and hash_variant ~loc row_fields value =
         Hsv_expr.compose
           ~loc
           (hash_fold_int ~loc (Ocaml_common.Btype.hash_variant cnstr))
-          (hash_fold_of_ty tp (evar ~loc v))
+          (hash_fold_of_ty ~ctx tp (evar ~loc v))
       in
       Hsv_expr.case
         ~guard:None
@@ -285,7 +394,7 @@ and hash_variant ~loc row_fields value =
       Hsv_expr.case
         ~guard:None
         ~lhs:(ppat_alias ~loc (ppat_type ~loc (ghostify_located id)) (Located.mk ~loc v))
-        ~rhs:(hash_applied ty (evar ~loc v))
+        ~rhs:(hash_applied ~ctx ty (evar ~loc v))
     | Rinherit ty ->
       let s = string_of_core_type ty in
       Hsv_expr.compile_error_case
@@ -294,7 +403,8 @@ and hash_variant ~loc row_fields value =
   in
   Hsv_expr.pexp_match ~loc value (List.map ~f:map row_fields)
 
-and branch_of_sum hsv ~loc cd =
+and branch_of_sum hsv ~ctx ~loc cd =
+  let ctx = Context.with_constructor_decl ctx cd in
   match cd.pcd_args with
   | Pcstr_tuple [] ->
     let pcnstr = pconstruct cd None in
@@ -308,7 +418,7 @@ and branch_of_sum hsv ~loc cd =
     let lpatt = List.map ids_ty ~f:(fun (l, _ty) -> pvar ~loc l) |> ppat_tuple ~loc
     and body =
       List.fold_left ids_ty ~init:(Hsv_expr.identity ~loc) ~f:(fun expr (l, ty) ->
-        Hsv_expr.compose ~loc expr (hash_fold_of_ty ty (evar ~loc l)))
+        Hsv_expr.compose ~loc expr (hash_fold_of_ty ~ctx ty (evar ~loc l)))
     in
     Hsv_expr.case
       ~guard:None
@@ -318,23 +428,24 @@ and branch_of_sum hsv ~loc cd =
     let arg = "_ir" in
     let pat = pvar ~loc arg in
     let v = evar ~loc arg in
-    let body = hash_fold_of_record ~loc lds v in
+    let body = hash_fold_of_record ~ctx ~loc lds v in
     Hsv_expr.case
       ~guard:None
       ~lhs:(pconstruct cd (Some pat))
       ~rhs:(Hsv_expr.compose ~loc hsv body)
 
-and branches_of_sum = function
+and branches_of_sum ~ctx branches =
+  match branches with
   | [ cd ] ->
     (* this is an optimization: we don't need to mix in the constructor tag if the type
        only has one constructor *)
     let loc = cd.pcd_loc in
-    [ branch_of_sum (Hsv_expr.identity ~loc) ~loc cd ]
+    [ branch_of_sum ~ctx (Hsv_expr.identity ~loc) ~loc cd ]
   | cds ->
     List.mapi cds ~f:(fun i cd ->
       let loc = cd.pcd_loc in
       let hsv = hash_fold_int ~loc i in
-      branch_of_sum hsv ~loc cd)
+      branch_of_sum ~ctx hsv ~loc cd)
 
 and hash_sum_special_case_for_enums ~loc cds value =
   let cd_has_payload (cd : constructor_declaration) =
@@ -364,40 +475,57 @@ and hash_sum_special_case_for_enums ~loc cds value =
           in
           hash_fold_int_expr ~loc tag_expr))
 
-and hash_sum ~loc cds value =
+and hash_sum ~ctx ~loc cds value =
   match hash_sum_special_case_for_enums ~loc cds value with
   | Some v -> v
-  | None -> Hsv_expr.pexp_match ~loc value (branches_of_sum cds)
+  | None -> Hsv_expr.pexp_match ~loc value (branches_of_sum ~ctx cds)
 
-and hash_fold_of_ty ty value =
+and hash_fold_of_ty ~ctx ty value =
   let loc = { ty.ptyp_loc with loc_ghost = true } in
   if core_type_is_ignored ty
   then hash_ignore ~loc value
   else (
-    match Ppxlib_jane.Shim.Core_type_desc.of_parsetree ty.ptyp_desc with
-    | Ptyp_constr _ -> hash_applied ty value
-    | Ptyp_tuple tys -> hash_fold_of_tuple ~loc tys value
-    | Ptyp_var (name, _) ->
-      Hsv_expr.invoke_hash_fold_t ~loc ~hash_fold_t:(evar ~loc (tp_name name)) ~t:value
-    | Ptyp_arrow _ -> Hsv_expr.compile_error ~loc "ppx_hash: functions can not be hashed."
-    | Ptyp_variant (row_fields, Closed, _) -> hash_variant ~loc row_fields value
-    | _ ->
-      let s = string_of_core_type ty in
-      Hsv_expr.compile_error ~loc (Printf.sprintf "ppx_hash: unsupported type: %s" s))
+    match core_type_custom_implementation ty with
+    | Some custom_implementation ->
+      Hsv_expr.invoke_hash_fold_t ~loc ~hash_fold_t:custom_implementation ~t:value
+    | None ->
+      (match Ppxlib_jane.Shim.Core_type_desc.of_parsetree ty.ptyp_desc with
+       | Ptyp_constr _ -> hash_applied ~ctx ty value
+       | Ptyp_tuple tys -> hash_fold_of_tuple ~ctx ~loc tys value
+       | Ptyp_var (name, _) ->
+         (match Context.rename ctx name with
+          | Some name ->
+            Hsv_expr.invoke_hash_fold_t
+              ~loc
+              ~hash_fold_t:(evar ~loc (tp_name name))
+              ~t:value
+          | None ->
+            Hsv_expr.compile_error
+              ~loc
+              ("ppx_hash: variable is not a parameter of the type constructor.\n\
+                Hint: mark appearances of '"
+               ^ name
+               ^ " as [@hash.ignore]."))
+       | Ptyp_arrow _ ->
+         Hsv_expr.compile_error ~loc "ppx_hash: functions can not be hashed."
+       | Ptyp_variant (row_fields, Closed, _) -> hash_variant ~ctx ~loc row_fields value
+       | _ ->
+         let s = string_of_core_type ty in
+         Hsv_expr.compile_error ~loc (Printf.sprintf "ppx_hash: unsupported type: %s" s)))
 
-and hash_fold_of_ty_fun ~type_constraint ty =
+and hash_fold_of_ty_fun ~ctx ~type_constraint ty =
   let loc = { ty.ptyp_loc with loc_ghost = true } in
   let arg = "arg" in
   let maybe_constrained_arg =
     if type_constraint then ppat_constraint ~loc (pvar ~loc arg) ty else pvar ~loc arg
   in
   let hsv_pat, hsv_expr =
-    Hsv_expr.to_expression ~loc (hash_fold_of_ty ty (evar ~loc arg))
+    Hsv_expr.to_expression ~loc (hash_fold_of_ty ~ctx ty (evar ~loc arg))
   in
   eta_reduce_if_possible
     [%expr fun [%p hsv_pat] [%p maybe_constrained_arg] -> [%e hsv_expr]]
 
-and hash_fold_of_record ~loc lds value =
+and hash_fold_of_record ~ctx ~loc lds value =
   let is_evar = function
     | { pexp_desc = Pexp_ident _; _ } -> true
     | _ -> false
@@ -420,7 +548,7 @@ and hash_fold_of_record ~loc lds value =
        let hsv =
          match field_handling with
          | `error s -> Hsv_expr.compile_error ~loc (Printf.sprintf "ppx_hash: %s" s)
-         | `incorporate -> hash_fold_of_ty ld.pld_type (pexp_field ~loc value label)
+         | `incorporate -> hash_fold_of_ty ~ctx ld.pld_type (pexp_field ~loc value label)
          | `ignore -> Hsv_expr.identity ~loc
        in
        match should_warn with
@@ -442,13 +570,11 @@ let hash_fold_of_abstract ~loc type_name value =
       failwith [%e estring ~loc str]]
 ;;
 
-(** this does not change behavior (keeps the expression side-effect if any), but it can
-    make the compiler happy when the expression occurs on the rhs of an [let rec] binding. *)
-let eta_expand ~loc f =
-  [%expr
-    let func = [%e f] in
-    fun x -> func x]
-;;
+(* Eta-expand the expression, delaying the side effects, if any. It can make the compiler
+   happy when the expression occurs on the rhs of a [let rec] binding, or when
+   mode-checking the result as [portable].
+*)
+let eta_expand ~loc f = [%expr fun x -> [%e f] x]
 
 let recognize_simple_type ty =
   match ty.ptyp_desc with
@@ -456,7 +582,7 @@ let recognize_simple_type ty =
   | _ -> None
 ;;
 
-let hash_of_ty_fun ~special_case_simple_types ~type_constraint ty =
+let hash_of_ty_fun ~ctx ~special_case_simple_types ~type_constraint ty =
   let loc = { ty.ptyp_loc with loc_ghost = true } in
   let arg = "arg" in
   let maybe_constrained_arg =
@@ -464,10 +590,10 @@ let hash_of_ty_fun ~special_case_simple_types ~type_constraint ty =
   in
   match recognize_simple_type ty with
   | Some lident when special_case_simple_types ->
-    unapplied_type_constr_conv ~loc lident ~f:hash_
+    Ppx_helpers.type_constr_conv_expr ~loc lident [] ~f:hash_
   | _ ->
     let hsv_pat, hsv_expr =
-      Hsv_expr.to_expression ~loc (hash_fold_of_ty ty (evar ~loc arg))
+      Hsv_expr.to_expression ~loc (hash_fold_of_ty ~ctx ty (evar ~loc arg))
     in
     [%expr
       fun [%p maybe_constrained_arg] ->
@@ -478,11 +604,15 @@ let hash_of_ty_fun ~special_case_simple_types ~type_constraint ty =
 
 let hash_structure_item_of_td td ~portable =
   let loc = td.ptype_loc in
+  let ctx = Context.type_decl td in
   match td.ptype_params with
   | _ :: _ -> []
   | [] ->
     [ (let bnd = pvar ~loc (hash_ td.ptype_name.txt) in
-       let typ = combinator_type_of_type_declaration td ~f:hash_type in
+       let typ =
+         Ppx_helpers.combinator_type_of_type_declaration td ~f:hash_type
+         |> Ppx_helpers.Polytype.to_core_type
+       in
        let pat = ppat_constraint ~loc bnd typ in
        let expected_scope, expr =
          let is_simple_type ty =
@@ -493,10 +623,12 @@ let hash_structure_item_of_td td ~portable =
          match td.ptype_kind, td.ptype_manifest with
          | Ptype_abstract, Some ty when is_simple_type ty ->
            ( `uses_rhs
-           , hash_of_ty_fun ~special_case_simple_types:true ~type_constraint:false ty )
+           , hash_of_ty_fun ~ctx ~special_case_simple_types:true ~type_constraint:false ty
+           )
          | _ ->
            ( `uses_hash_fold_t_being_defined
            , hash_of_ty_fun
+               ~ctx
                ~special_case_simple_types:false
                ~type_constraint:false
                { ptyp_loc = loc
@@ -517,11 +649,12 @@ let hash_structure_item_of_td td ~portable =
 let hash_fold_structure_item_of_td td ~rec_flag ~portable =
   let loc = { td.ptype_loc with loc_ghost = true } in
   let arg = "arg" in
+  let ctx = Context.type_decl td in
   let body =
     let v = evar ~loc arg in
     match Ppxlib_jane.Shim.Type_kind.of_parsetree td.ptype_kind with
-    | Ptype_variant cds -> hash_sum ~loc cds v
-    | Ptype_record lds -> hash_fold_of_record ~loc lds v
+    | Ptype_variant cds -> hash_sum ~ctx ~loc cds v
+    | Ptype_record lds -> hash_fold_of_record ~ctx ~loc lds v
     | Ptype_record_unboxed_product _ ->
       Hsv_expr.compile_error ~loc "ppx_hash: unboxed record types are not supported"
     | Ptype_open -> Hsv_expr.compile_error ~loc "ppx_hash: open types are not supported"
@@ -534,16 +667,16 @@ let hash_fold_structure_item_of_td td ~rec_flag ~portable =
             Hsv_expr.compile_error
               ~loc:ty.ptyp_loc
               "ppx_hash: cannot hash open polymorphic variant types"
-          | Ptyp_variant (row_fields, _, _) -> hash_variant ~loc row_fields v
-          | _ -> hash_fold_of_ty ty v))
+          | Ptyp_variant (row_fields, _, _) -> hash_variant ~ctx ~loc row_fields v
+          | _ -> hash_fold_of_ty ~ctx ty v))
   in
-  let vars = List.map td.ptype_params ~f:(fun p -> get_type_param_name p) in
-  let extra_names = List.map vars ~f:(fun x -> tp_name x.txt) in
+  let vars = List.map td.ptype_params ~f:Ppxlib_jane.get_type_param_name_and_jkind in
+  let extra_names = List.map vars ~f:(fun (x, _) -> tp_name x.txt) in
   let hsv_pat, hsv_expr = Hsv_expr.to_expression ~loc body in
   let patts = List.map extra_names ~f:(pvar ~loc) @ [ hsv_pat; pvar ~loc arg ] in
   let bnd = pvar ~loc (hash_fold_ td.ptype_name.txt) in
-  let scheme = combinator_type_of_type_declaration td ~f:hash_fold_type in
-  let pat = ppat_constraint ~loc bnd (ptyp_poly ~loc vars scheme) in
+  let scheme = Ppx_helpers.combinator_type_of_type_declaration td ~f:hash_fold_type in
+  let pat = ppat_constraint ~loc bnd (scheme |> Ppx_helpers.Polytype.to_core_type) in
   let expr =
     eta_reduce_if_possible_and_nonrec ~rec_flag (eabstract ~loc patts hsv_expr)
   in
@@ -555,11 +688,15 @@ let hash_fold_structure_item_of_td td ~rec_flag ~portable =
   let expr =
     if use_rigid_variables
     then (
+      let { body = scheme; vars = _; loc = _ } : Ppx_helpers.Polytype.t = scheme in
       let type_name = td.ptype_name.txt in
       List.fold_right
         vars
-        ~f:(fun s ->
-          pexp_newtype ~loc { txt = rigid_type_var ~type_name s.txt; loc = s.loc })
+        ~f:(fun (s, jkind) ->
+          Ppxlib_jane.Ast_builder.Default.pexp_newtype
+            ~loc
+            (Loc.map s ~f:(rigid_type_var ~type_name))
+            jkind)
         ~init:(pexp_constraint ~loc expr (make_type_rigid ~type_name scheme)))
     else expr
   in
@@ -625,7 +762,10 @@ let mk_sig ~loc:_ ~path:_ (_rec_flag, tds) ~portable =
     (List.map tds ~f:(fun td ->
        let monomorphic = List.is_empty td.ptype_params in
        let definition ~f_type ~f_name =
-         let type_ = combinator_type_of_type_declaration td ~f:f_type in
+         let type_ =
+           Ppx_helpers.combinator_type_of_type_declaration td ~f:f_type
+           |> Ppx_helpers.Polytype.to_core_type
+         in
          let name =
            let tn = td.ptype_name.txt in
            f_name tn
@@ -664,8 +804,14 @@ let sig_type_decl ~loc ~path (rec_flag, tds) ~portable =
   | None -> mk_sig ~loc ~path (rec_flag, tds) ~portable
 ;;
 
-let hash_fold_core_type ty = hash_fold_of_ty_fun ~type_constraint:true ty
+let hash_fold_core_type ty =
+  hash_fold_of_ty_fun ~ctx:Context.empty ~type_constraint:true ty
+;;
 
 let hash_core_type ty =
-  hash_of_ty_fun ~special_case_simple_types:true ~type_constraint:true ty
+  hash_of_ty_fun
+    ~ctx:Context.empty
+    ~special_case_simple_types:true
+    ~type_constraint:true
+    ty
 ;;

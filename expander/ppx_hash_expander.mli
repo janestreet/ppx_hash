@@ -1,12 +1,16 @@
 open Ppxlib
 
-val hash_fold_type : loc:Location.t -> core_type -> core_type
+(** [hash_fold_core_type ty] is an expression of type [Hash.state -> ty -> Hash.state] *)
 val hash_fold_core_type : core_type -> expression
 
-(** [hash_core_type ty] is an expression of type [Hash.state -> ty -> Hash.state] *)
-val hash_type : loc:Location.t -> core_type -> core_type
+val hash_fold_type : loc:Location.t -> core_type -> core_type
+val hash_fold_pattern : loc:Location.t -> core_type -> pattern
 
+(** [hash_core_type ty] is an expression of type [ty -> Hash.hash_value] *)
 val hash_core_type : core_type -> expression
+
+val hash_type : loc:Location.t -> core_type -> core_type
+val hash_pattern : loc:Location.t -> core_type -> pattern
 val str_attributes : Attribute.packed list
 
 val str_type_decl

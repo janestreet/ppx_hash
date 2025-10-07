@@ -54,6 +54,11 @@ module Folding (Hash : Hash_intf.S) :
     | Some x -> hash_fold_elem (hash_fold_int s 1) x
   ;;
 
+  let hash_fold_or_null hash_fold_elem s = function
+    | Basement.Or_null_shim.Null -> hash_fold_int s 0
+    | This x -> hash_fold_elem (hash_fold_int s 1) x
+  ;;
+
   let rec hash_fold_list_body hash_fold_elem s list =
     match list with
     | [] -> s

@@ -12,11 +12,12 @@ build: [
 depends: [
   "ocaml" {>= "5.1.0"}
   "ppx_compare"
+  "ppx_helpers"
   "ppx_sexp_conv"
   "ppxlib_jane"
   "dune"                {>= "3.17.0"}
-  "ocaml-compiler-libs" {= "v0.17.0+jst"}
-  "ppxlib"              {= "0.33.0+jst"}
+  "ocaml-compiler-libs" {= "v0.17.0+ox"}
+  "ppxlib"              {= "0.33.0+ox"}
 ]
 available: arch != "arm32" & arch != "x86_32"
 synopsis: "A ppx rewriter that generates hash functions from type expressions and definitions"
