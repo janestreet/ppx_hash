@@ -2,5 +2,5 @@
  (name ppx_hash)
  (public_name ppx_hash)
  (kind ppx_deriver)
- (libraries ppxlib ppx_hash_expander)
+ (libraries ppx_hash_expander ppxlib)
  (preprocess no_preprocessing))
