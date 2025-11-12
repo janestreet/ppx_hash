@@ -271,13 +271,18 @@ let make_type_rigid ~type_name =
   map#core_type
 ;;
 
-let with_tuple loc (value : expr) xs (f : (expr * core_type) list -> Hsv_expr.t)
+let with_tuple loc (value : expr) xs (f : (expr * core_type) list -> Hsv_expr.t) ~boxed
   : Hsv_expr.t
   =
   let names = List.mapi ~f:(fun i lt -> Printf.sprintf "e%d" i, lt) xs in
   let pattern =
     let l = List.map ~f:(fun (n, (lbl, _)) -> lbl, pvar ~loc n) names in
-    Ppxlib_jane.Ast_builder.Default.ppat_tuple ~loc l Closed
+    let ppat =
+      if boxed
+      then Ppxlib_jane.Ast_builder.Default.ppat_tuple
+      else Ppxlib_jane.Ast_builder.Default.ppat_unboxed_tuple
+    in
+    ppat ~loc l Closed
   in
   let e = f (List.map ~f:(fun (n, (_lbl, t)) -> evar ~loc n, t) names) in
   let binding = value_binding ~loc ~pat:pattern ~expr:value in
@@ -357,8 +362,8 @@ let rec hash_applied ~ctx ty value =
       ~t:value
   | _ -> assert false
 
-and hash_fold_of_tuple ~ctx ~loc tys value =
-  with_tuple loc value tys (fun elems1 ->
+and hash_fold_of_tuple ~ctx ~loc ~boxed tys value =
+  with_tuple loc value tys ~boxed (fun elems1 ->
     List.fold_right
       elems1
       ~init:(Hsv_expr.identity ~loc)
@@ -491,7 +496,8 @@ and hash_fold_of_ty ~ctx ty value =
     | None ->
       (match Ppxlib_jane.Shim.Core_type_desc.of_parsetree ty.ptyp_desc with
        | Ptyp_constr _ -> hash_applied ~ctx ty value
-       | Ptyp_tuple tys -> hash_fold_of_tuple ~ctx ~loc tys value
+       | Ptyp_tuple tys -> hash_fold_of_tuple ~ctx ~loc tys value ~boxed:true
+       | Ptyp_unboxed_tuple tys -> hash_fold_of_tuple ~ctx ~loc tys value ~boxed:false
        | Ptyp_var (name, _) ->
          (match Context.rename ctx name with
           | Some name ->
@@ -777,7 +783,8 @@ let mk_sig ~loc:_ ~path:_ (_rec_flag, tds) ~portable =
               ~loc
               ~name:{ td.ptype_name with txt = name }
               ~type_
-              ~modalities:(if portable then [ Ppxlib_jane.Modality "portable" ] else [])
+              ~modalities:
+                (if portable then Ppxlib_jane.Shim.Modalities.portable ~loc else [])
               ~prim:[])
        in
        List.concat
@@ -795,6 +802,9 @@ let sig_type_decl ~loc ~path (rec_flag, tds) ~portable =
       tds
   with
   | Some include_info ->
+    let include_info =
+      Ppxlib_jane.append_arbitrary_suffix_to_include_signature include_info ~suffix:"_any"
+    in
     [ Ppxlib_jane.Ast_builder.Default.psig_include
         ~loc
         ~modalities:
