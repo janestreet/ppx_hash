@@ -37,7 +37,7 @@ module Folding (Hash : Hash_intf.S) :
   let as_int f s x = hash_fold_int s (f x)
 
   (* This ignores the sign bit on 32-bit architectures, but it's unlikely to lead to
-     frequent collisions (min_value colliding with 0 is the most likely one).  *)
+     frequent collisions (min_value colliding with 0 is the most likely one). *)
   let hash_fold_int32 = as_int Stdlib.Int32.to_int
   let hash_fold_char = as_int Char.code
 
@@ -95,8 +95,8 @@ module Folding (Hash : Hash_intf.S) :
       0
   ;;
 
-  (* the duplication here is because we think
-     ocaml can't eliminate indirect function calls otherwise. *)
+  (* the duplication here is because we think ocaml can't eliminate indirect function
+     calls otherwise. *)
   let hash_nativeint x =
     Hash.get_hash_value (hash_fold_nativeint (Hash.reset (Hash.alloc ())) x)
   ;;
@@ -192,9 +192,9 @@ module T = struct
     module Folding = struct
       include Folding (Internalhash)
 
-      (* Hack to make zero-alloc see that these functions are zero-alloc, even
-         in BUILD_PROFILE=dev. dev builds do not inline functor applications
-         like [Folding (Internalhash)] above.
+      (* Hack to make zero-alloc see that these functions are zero-alloc, even in
+         BUILD_PROFILE=dev. dev builds do not inline functor applications like
+         [Folding (Internalhash)] above.
       *)
       let hash_fold_string = Internalhash.fold_string
       let hash_fold_float = Internalhash.fold_float
@@ -221,7 +221,7 @@ module T = struct
          each other.
        - all bits of the input are used in generating the output
 
-       In our case we also want it to be fast, non-allocating, and inlinable.  *)
+       In our case we also want it to be fast, non-allocating, and inlinable. *)
     let[@inline always] hash_int (t : int) =
       let t = lnot t + (t lsl 21) in
       let t = t lxor (t lsr 24) in

@@ -79,8 +79,8 @@ let should_ignore_label_declaration ld =
       ; Ppx_compare_expander.Compare.Attrs.ignore_label_declaration
       ]
       ld
-    (* Avoid confusing errors with [ { mutable field : (value[@ignore]) } ]
-       vs [ { mutable field : value [@ignore] } ] by treating them the same. *)
+    (* Avoid confusing errors with [ { mutable field : (value[@ignore]) } ] vs
+       [ { mutable field : value [@ignore] } ] by treating them the same. *)
     || core_type_is_ignored ld.pld_type
   in
   match Attribute.get Attrs.no_hashing_label_declaration ld with
@@ -107,13 +107,13 @@ let hash_ ?functor_ tn =
   | Some path, _ -> Printf.sprintf "hash_%s__%s" path tn
 ;;
 
-(* The only names we assume to be in scope are [hash_fold_<TY>]
-   So we are sure [tp_name] (which start with an [_]) will not capture them. *)
+(* The only names we assume to be in scope are [hash_fold_<TY>] So we are sure [tp_name]
+   (which start with an [_]) will not capture them. *)
 let tp_name n = Printf.sprintf "_hash_fold_%s" n
 
-(* Generate code to compute hash values of type [t] in folding style, following the structure of
-   the type.  Incorporate all structure when computing hash values, to maximise hash
-   quality. Don't attempt to detect/avoid cycles - just loop. *)
+(* Generate code to compute hash values of type [t] in folding style, following the
+   structure of the type. Incorporate all structure when computing hash values, to
+   maximise hash quality. Don't attempt to detect/avoid cycles - just loop. *)
 
 let hash_state_t ~loc = [%type: Ppx_hash_lib.Std.Hash.state]
 
@@ -154,14 +154,13 @@ let hash_pattern ~loc ty =
          "Only type constructors are allowed here (e.g. [t], ['a t], or [M(X).t]).")
 ;;
 
-(* [expr] is an expression that doesn't use the [hsv] variable.
-   Currently it's there only for documentation value, but conceptually it can be thought
-   of as an abstract type *)
+(* [expr] is an expression that doesn't use the [hsv] variable. Currently it's there only
+   for documentation value, but conceptually it can be thought of as an abstract type *)
 type expr = expression
 
-(* Represents an expression that produces a hash value and uses the variable [hsv] in
-   a linear way (mixes it in exactly once).
-   You can think of it as a body of a function of type [Hash.state -> Hash.state] *)
+(* Represents an expression that produces a hash value and uses the variable [hsv] in a
+   linear way (mixes it in exactly once). You can think of it as a body of a function of
+   type [Hash.state -> Hash.state] *)
 module Hsv_expr : sig
   type t
 
@@ -176,8 +175,7 @@ module Hsv_expr : sig
   (** the returned [expression] uses the binding [hsv] bound by [pattern] *)
   val to_expression : loc:location -> t -> pattern * expression
 
-  (* [case] is binding a variable that's not [hsv] and uses [hsv] on the rhs
-     exactly once *)
+  (* [case] is binding a variable that's not [hsv] and uses [hsv] on the rhs exactly once *)
   type case
 
   val compile_error_case : loc:location -> string -> case
@@ -307,7 +305,7 @@ module Context = struct
     | Type_decl of
         { parameters : string list
         ; rename : string String.Map.t
-        (* Map from variant case parameter names to type-decl parameter names.*)
+        (* Map from variant case parameter names to type-decl parameter names. *)
         }
 
   let empty = Empty
@@ -391,10 +389,9 @@ and hash_variant ~ctx ~loc row_fields value =
         ~lhs:(ppat_variant ~loc cnstr (Some (pvar ~loc v)))
         ~rhs:body
     | Rinherit ({ ptyp_desc = Ptyp_constr (id, _); _ } as ty) ->
-      (* Generated code from..
-         type 'a id = 'a [@@deriving hash]
-         type t = [ `a | [ `b ] id ] [@@deriving hash]
-         doesn't compile: Also see the "sadly" note in: ppx_compare_expander.ml *)
+      (* Generated code from.. type 'a id = 'a [@@deriving hash] type t =
+         [ `a | [ `b ] id ] [@@deriving hash] doesn't compile: Also see the "sadly" note
+         in: ppx_compare_expander.ml *)
       let v = "_v" in
       Hsv_expr.case
         ~guard:None
@@ -460,8 +457,8 @@ and hash_sum_special_case_for_enums ~loc cds value =
   in
   match cds with
   | [ _ ] ->
-    (* Don't need to write any tag at all for the single-constructor case.
-       The general [branches_of_sum] function can take care of that *)
+    (* Don't need to write any tag at all for the single-constructor case. The general
+       [branches_of_sum] function can take care of that *)
     None
   | _ ->
     (match List.exists cds ~f:(fun cd -> cd_has_payload cd) with
@@ -748,8 +745,8 @@ let str_type_decl ~loc ~path:_ (rec_flag, tds) ~portable =
     (* if we wanted to maximize the scope hygiene here this would be, in this order:
        - recursive group of [hash_fold]
        - nonrecursive group of [hash] that are [`uses_hash_fold_t_being_defined]
-       - recursive group of [hash] that are [`uses_rhs]
-         but fighting the "unused rec flag" warning is just way too hard *)
+       - recursive group of [hash] that are [`uses_rhs] but fighting the "unused rec flag"
+         warning is just way too hard *)
     pstr_value ~loc Recursive (hash_fold_bindings @ List.map ~f:snd hash_bindings)
   | Nonrecursive ->
     let rely_on_hash_fold_t, use_rhs =
