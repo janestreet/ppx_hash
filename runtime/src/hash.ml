@@ -1,5 +1,4 @@
-(*
-   This is the interface to the runtime support for [ppx_hash].
+(* This is the interface to the runtime support for [ppx_hash].
 
    The [ppx_hash] syntax extension supports: [@@deriving hash] and [%hash_fold: TYPE] and
    [%hash: TYPE]
@@ -14,8 +13,8 @@
    The generator also provides a direct hash-function [hash] (named [hash_<T>] when <T> !=
    "t") of type: [t -> Hash.hash_value].
 
-   The folding hash function can be accessed as [%hash_fold: TYPE]
-   The direct hash function can be accessed as [%hash: TYPE]
+   The folding hash function can be accessed as [%hash_fold: TYPE] The direct hash
+   function can be accessed as [%hash: TYPE]
 *)
 
 include Hash_intf
@@ -139,8 +138,8 @@ module Internalhash : sig @@ portable
     Hash_intf.S
     with type state = Base_internalhash_types.state
     (* We give a concrete type for [state], albeit only partially exposed (see
-        Base_internalhash_types), so that it unifies with the same type in [Base_boot],
-        and to allow optimizations for the immediate type. *)
+       Base_internalhash_types), so that it unifies with the same type in [Base_boot], and
+       to allow optimizations for the immediate type. *)
      and type seed = Base_internalhash_types.seed
      and type hash_value = Base_internalhash_types.hash_value
 
