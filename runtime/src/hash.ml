@@ -17,6 +17,7 @@
    function can be accessed as [%hash: TYPE]
 *)
 
+open Basement.Or_null_shim.Export
 include Hash_intf
 
 (** Builtin folding-style hash functions, abstracted over [Hash_intf.S] *)
@@ -54,7 +55,7 @@ module Folding (Hash : Hash_intf.S) :
   ;;
 
   let hash_fold_or_null hash_fold_elem s = function
-    | Basement.Or_null_shim.Null -> hash_fold_int s 0
+    | Null -> hash_fold_int s 0
     | This x -> hash_fold_elem (hash_fold_int s 1) x
   ;;
 

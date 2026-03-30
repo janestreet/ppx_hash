@@ -799,9 +799,6 @@ let sig_type_decl ~loc ~path (rec_flag, tds) ~portable =
       tds
   with
   | Some include_info ->
-    let include_info =
-      Ppxlib_jane.append_arbitrary_suffix_to_include_signature include_info ~suffix:"_any"
-    in
     [ Ppxlib_jane.Ast_builder.Default.psig_include
         ~loc
         ~modalities:
