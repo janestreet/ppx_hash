@@ -14,26 +14,26 @@ struct
   type ('a : any) hash_fold = hash_state -> 'a -> hash_state
 
   module Hashable = struct
-    module type S_any = sig
+    module type S = sig
       type t : any
 
       val hash_fold_t : t hash_fold
       val hash : t -> hash_value
     end
 
-    module type S1_any = sig
+    module type S1 = sig
       type 'a t : any
 
       val hash_fold_t : 'a hash_fold -> 'a t hash_fold
     end
 
-    module type S2_any = sig
+    module type S2 = sig
       type ('a, 'b) t : any
 
       val hash_fold_t : 'a hash_fold -> 'b hash_fold -> ('a, 'b) t hash_fold
     end
 
-    module type S3_any = sig
+    module type S3 = sig
       type ('a, 'b, 'c) t : any
 
       val hash_fold_t
@@ -41,30 +41,6 @@ struct
         -> 'b hash_fold
         -> 'c hash_fold
         -> ('a, 'b, 'c) t hash_fold
-    end
-
-    module type S = sig
-      type t
-
-      include S_any with type t := t
-    end
-
-    module type S1 = sig
-      type 'a t
-
-      include S1_any with type 'a t := 'a t
-    end
-
-    module type S2 = sig
-      type ('a, 'b) t
-
-      include S2_any with type ('a, 'b) t := ('a, 'b) t
-    end
-
-    module type S3 = sig
-      type ('a, 'b, 'c) t
-
-      include S3_any with type ('a, 'b, 'c) t := ('a, 'b, 'c) t
     end
   end
 end
