@@ -82,8 +82,7 @@ struct hash_state
   uint64_t v0, v1, v2, v3;
 };
 
-/* internal */
-void siphash_fold_uint64(value state, uint64_t i)
+CAMLprim value siphash_fold_uint64(value state, uint64_t i)
 {
   struct hash_state * h = (struct hash_state *) state;
   unsigned round;
@@ -91,18 +90,17 @@ void siphash_fold_uint64(value state, uint64_t i)
   for (round = 0; round < cROUNDS; ++round)
     SIPROUND(h);
   h->v0 ^= i;
+  return state;
 }
 
 CAMLprim value siphash_fold_int64(value st, value i)
 {
-  siphash_fold_uint64(st, Int64_val(i));
-  return st;
+  return siphash_fold_uint64(st, Int64_val(i));
 }
 
 CAMLprim value siphash_fold_int(value st, value i)
 {
-  siphash_fold_uint64(st, Long_val(i));
-  return st;
+  return siphash_fold_uint64(st, Long_val(i));
 }
 
 /* The code has been 'borrowed' from byterun/hash.c in ocaml */
@@ -135,11 +133,14 @@ CAMLexport uint64_t caml_hash_normalize_double_to_int64(double d)
   return u.i64;
 }
 
-CAMLprim value siphash_fold_float(value st, value i)
+CAMLprim value siphash_fold_ufloat(value st, double d)
 {
-  uint64_t x = caml_hash_normalize_double_to_int64(Double_val(i));
-  siphash_fold_uint64(st, x);
-  return st;
+  uint64_t x = caml_hash_normalize_double_to_int64(d);
+  return siphash_fold_uint64(st, x);
+}
+
+CAMLprim value siphash_fold_float(value st, value i) {
+  return siphash_fold_ufloat(st, Double_val(i));
 }
 
 CAMLprim value siphash_fold_string(value st, value s)

@@ -96,15 +96,17 @@ let special_case_types_named_t = function
 let hash_fold_ ?functor_ tn =
   match functor_, tn with
   | None, "t" when special_case_types_named_t `hash_fold -> "hash_fold"
-  | None, _ -> "hash_fold_" ^ tn
-  | Some path, _ -> Printf.sprintf "hash_fold_%s__%s" path tn
+  | None, "t#" when special_case_types_named_t `hash_fold -> "hash_fold_u"
+  | None, _ -> "hash_fold_" ^ Ppx_helpers.mangle_unboxed tn
+  | Some path, _ -> Printf.sprintf "hash_fold_%s__%s" path (Ppx_helpers.mangle_unboxed tn)
 ;;
 
 let hash_ ?functor_ tn =
   match functor_, tn with
   | None, "t" when special_case_types_named_t `hash -> "hash"
-  | None, _ -> "hash_" ^ tn
-  | Some path, _ -> Printf.sprintf "hash_%s__%s" path tn
+  | None, "t#" when special_case_types_named_t `hash -> "hash_u"
+  | None, _ -> "hash_" ^ Ppx_helpers.mangle_unboxed tn
+  | Some path, _ -> Printf.sprintf "hash_%s__%s" path (Ppx_helpers.mangle_unboxed tn)
 ;;
 
 (* The only names we assume to be in scope are [hash_fold_<TY>] So we are sure [tp_name]
@@ -229,7 +231,7 @@ let hash_fold_int ~loc i : Hsv_expr.t = hash_fold_int_expr ~loc (eint ~loc i)
 let rigid_type_var ~type_name x =
   let prefix = "rigid_" in
   if String.equal x type_name || String.is_prefix x ~prefix
-  then prefix ^ x ^ "_of_type_" ^ type_name
+  then prefix ^ x ^ "_of_type_" ^ Ppx_helpers.mangle_unboxed type_name
   else x
 ;;
 
@@ -430,7 +432,7 @@ and branch_of_sum hsv ~ctx ~loc cd =
     let arg = "_ir" in
     let pat = pvar ~loc arg in
     let v = evar ~loc arg in
-    let body = hash_fold_of_record ~ctx ~loc lds v in
+    let body = hash_fold_of_record ~ctx ~loc ~unboxed:false lds v in
     Hsv_expr.case
       ~guard:None
       ~lhs:(pconstruct cd (Some pat))
@@ -528,7 +530,7 @@ and hash_fold_of_ty_fun ~ctx ~type_constraint ty =
   eta_reduce_if_possible
     [%expr fun [%p hsv_pat] [%p maybe_constrained_arg] -> [%e hsv_expr]]
 
-and hash_fold_of_record ~ctx ~loc lds value =
+and hash_fold_of_record ~ctx ~loc ~unboxed lds value =
   let is_evar = function
     | { pexp_desc = Pexp_ident _; _ } -> true
     | _ -> false
@@ -551,7 +553,16 @@ and hash_fold_of_record ~ctx ~loc lds value =
        let hsv =
          match field_handling with
          | `error s -> Hsv_expr.compile_error ~loc (Printf.sprintf "ppx_hash: %s" s)
-         | `incorporate -> hash_fold_of_ty ~ctx ld.pld_type (pexp_field ~loc value label)
+         | `incorporate ->
+           hash_fold_of_ty
+             ~ctx
+             ld.pld_type
+             ((if unboxed
+               then Ppxlib_jane.Ast_builder.Default.pexp_unboxed_field ?attrs:None
+               else pexp_field)
+                ~loc
+                value
+                label)
          | `ignore -> Hsv_expr.identity ~loc
        in
        match should_warn with
@@ -657,9 +668,9 @@ let hash_fold_structure_item_of_td td ~rec_flag ~portable =
     let v = evar ~loc arg in
     match Ppxlib_jane.Shim.Type_kind.of_parsetree td.ptype_kind with
     | Ptype_variant cds -> hash_sum ~ctx ~loc cds v
-    | Ptype_record lds -> hash_fold_of_record ~ctx ~loc lds v
-    | Ptype_record_unboxed_product _ ->
-      Hsv_expr.compile_error ~loc "ppx_hash: unboxed record types are not supported"
+    | Ptype_record lds -> hash_fold_of_record ~ctx ~loc ~unboxed:false lds v
+    | Ptype_record_unboxed_product lds ->
+      hash_fold_of_record ~ctx ~loc ~unboxed:true lds v
     | Ptype_open -> Hsv_expr.compile_error ~loc "ppx_hash: open types are not supported"
     | Ptype_abstract ->
       (match td.ptype_manifest with
