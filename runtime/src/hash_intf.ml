@@ -37,8 +37,8 @@ module type S = sig @@ portable
       of the fold_<T> functions should not allocate. *)
   val fold_int : state -> int -> state
 
-  val fold_int64 : state -> int64 -> state
-  val fold_float : state -> float -> state
+  val fold_int64_u : state -> int64# -> state
+  val fold_float_u : state -> float# -> state
   val fold_string : state -> string -> state
 
   (** [seed] is the type used to seed the initial hash-state. *)
@@ -68,14 +68,21 @@ module type Builtin_hash_fold_intf = sig @@ portable
   type ('a : any) folder = state -> 'a -> state
 
   val hash_fold_nativeint : nativeint folder
+  val hash_fold_nativeint_u : nativeint# folder
   val hash_fold_int64 : int64 folder
+  val hash_fold_int64_u : int64# folder
   val hash_fold_int32 : int32 folder
+  val hash_fold_int32_u : int32# folder
   val hash_fold_char : char folder
+  val hash_fold_char_u : char# folder
   val hash_fold_int : int folder
   val hash_fold_bool : bool folder
+  val hash_fold_bool_u : bool# folder
   val hash_fold_string : string folder
   val hash_fold_float : float folder
+  val hash_fold_float_u : float# folder
   val hash_fold_unit : unit folder
+  val hash_fold_unit_u : unit# folder
   val hash_fold_option : ('a : value_or_null). 'a folder -> 'a option folder
   val hash_fold_or_null : 'a folder -> 'a Basement.Or_null_shim.t folder
   val hash_fold_list : ('a : value_or_null). 'a folder -> 'a list folder
@@ -98,14 +105,21 @@ module type Builtin_hash_intf = sig @@ portable
   type hash_value
 
   val hash_nativeint : nativeint -> hash_value
+  val hash_nativeint_u : nativeint# -> hash_value
   val hash_int64 : int64 -> hash_value
+  val hash_int64_u : int64# -> hash_value
   val hash_int32 : int32 -> hash_value
+  val hash_int32_u : int32# -> hash_value
   val hash_char : char -> hash_value
+  val hash_char_u : char# -> hash_value
   val hash_int : int -> hash_value
   val hash_bool : bool -> hash_value
+  val hash_bool_u : bool# -> hash_value
   val hash_string : string -> hash_value
   val hash_float : float -> hash_value
+  val hash_float_u : float# -> hash_value
   val hash_unit : unit -> hash_value
+  val hash_unit_u : unit# -> hash_value
 end
 
 module type Builtin_intf = sig
@@ -136,7 +150,7 @@ module type Full = sig @@ portable
       The following identity exists: [run [%hash_fold: T]] == [[%hash: T]]
 
       [run] can be used if we wish to run a hash-folder with a non-default seed. *)
-  val run : ?seed:seed -> 'a folder -> 'a -> hash_value
+  val run : ?seed:seed -> 'a folder @ local -> 'a -> hash_value
 end
 
 module type Hash = sig @@ portable

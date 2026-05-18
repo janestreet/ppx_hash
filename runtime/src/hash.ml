@@ -17,6 +17,42 @@
    function can be accessed as [%hash: TYPE]
 *)
 
+external unbox_float
+  :  (float[@local_opt])
+  -> (float#[@unboxed] [@local_opt])
+  @@ portable
+  = "%unbox_float"
+
+external int_of_int32_u
+  :  (int32#[@unboxed] [@local_opt])
+  -> int
+  @@ portable
+  = "%int_of_int32#"
+
+external unbox_int64
+  :  (int64[@local_opt])
+  -> (int64#[@unboxed] [@local_opt])
+  @@ portable
+  = "%unbox_int64"
+
+external int64_u_of_nativeint_u
+  :  (nativeint#[@unboxed])
+  -> (int64#[@unboxed] [@local_opt])
+  @@ portable
+  = "%int64#_of_nativeint#"
+
+let fold_unit_u s #() = s
+
+let int_of_bool_u = function
+  | #false -> 0
+  | #true -> 1
+;;
+
+external int_of_char_u : (char#[@unboxed]) -> int @@ portable = "%int_of_int8#"
+[@@warning "-187"]
+
+let code_of_char_u x = int_of_char_u x land 255
+
 open Basement.Or_null_shim.Export
 include Hash_intf
 
@@ -30,16 +66,21 @@ module Folding (Hash : Hash_intf.S) :
   type ('a : any) folder = state -> 'a -> state
 
   let hash_fold_unit s () = s
+  let hash_fold_unit_u = fold_unit_u
   let hash_fold_int = Hash.fold_int
-  let hash_fold_int64 = Hash.fold_int64
-  let hash_fold_float = Hash.fold_float
+  let hash_fold_int64_u = Hash.fold_int64_u
+  let hash_fold_int64 s x = hash_fold_int64_u s (unbox_int64 x)
+  let hash_fold_float_u = Hash.fold_float_u
+  let hash_fold_float s x = hash_fold_float_u s (unbox_float x)
   let hash_fold_string = Hash.fold_string
   let as_int f s x = hash_fold_int s (f x)
 
   (* This ignores the sign bit on 32-bit architectures, but it's unlikely to lead to
      frequent collisions (min_value colliding with 0 is the most likely one). *)
   let hash_fold_int32 = as_int Stdlib.Int32.to_int
+  let hash_fold_int32_u s x = hash_fold_int s (int_of_int32_u x)
   let hash_fold_char = as_int Char.code
+  let hash_fold_char_u s x = hash_fold_int s (code_of_char_u x)
 
   let hash_fold_bool =
     as_int (function
@@ -47,7 +88,9 @@ module Folding (Hash : Hash_intf.S) :
       | false -> 0)
   ;;
 
+  let hash_fold_bool_u s x = hash_fold_int s (int_of_bool_u x)
   let hash_fold_nativeint s x = hash_fold_int64 s (Stdlib.Int64.of_nativeint x)
+  let hash_fold_nativeint_u s x = hash_fold_int64_u s (int64_u_of_nativeint_u x)
 
   let hash_fold_option hash_fold_elem s = function
     | None -> hash_fold_int s 0
@@ -101,18 +144,50 @@ module Folding (Hash : Hash_intf.S) :
     Hash.get_hash_value (hash_fold_nativeint (Hash.reset (Hash.alloc ())) x)
   ;;
 
+  let hash_nativeint_u x =
+    Hash.get_hash_value (hash_fold_nativeint_u (Hash.reset (Hash.alloc ())) x)
+  ;;
+
   let hash_int64 x = Hash.get_hash_value (hash_fold_int64 (Hash.reset (Hash.alloc ())) x)
+
+  let hash_int64_u x =
+    Hash.get_hash_value (hash_fold_int64_u (Hash.reset (Hash.alloc ())) x)
+  ;;
+
   let hash_int32 x = Hash.get_hash_value (hash_fold_int32 (Hash.reset (Hash.alloc ())) x)
+
+  let hash_int32_u x =
+    Hash.get_hash_value (hash_fold_int32_u (Hash.reset (Hash.alloc ())) x)
+  ;;
+
   let hash_char x = Hash.get_hash_value (hash_fold_char (Hash.reset (Hash.alloc ())) x)
+
+  let hash_char_u x =
+    Hash.get_hash_value (hash_fold_char_u (Hash.reset (Hash.alloc ())) x)
+  ;;
+
   let hash_int x = Hash.get_hash_value (hash_fold_int (Hash.reset (Hash.alloc ())) x)
   let hash_bool x = Hash.get_hash_value (hash_fold_bool (Hash.reset (Hash.alloc ())) x)
+
+  let hash_bool_u x =
+    Hash.get_hash_value (hash_fold_bool_u (Hash.reset (Hash.alloc ())) x)
+  ;;
 
   let hash_string x =
     Hash.get_hash_value (hash_fold_string (Hash.reset (Hash.alloc ())) x)
   ;;
 
   let hash_float x = Hash.get_hash_value (hash_fold_float (Hash.reset (Hash.alloc ())) x)
+
+  let hash_float_u x =
+    Hash.get_hash_value (hash_fold_float_u (Hash.reset (Hash.alloc ())) x)
+  ;;
+
   let hash_unit x = Hash.get_hash_value (hash_fold_unit (Hash.reset (Hash.alloc ())) x)
+
+  let hash_unit_u x =
+    Hash.get_hash_value (hash_fold_unit_u (Hash.reset (Hash.alloc ())) x)
+  ;;
 end
 
 module F (Hash : Hash_intf.S) :

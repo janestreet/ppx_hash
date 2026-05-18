@@ -7,12 +7,22 @@ type seed = string
 external alloc : unit -> state @@ portable = "siphash_alloc"
 external reset_to : state -> seed -> state @@ portable = "siphash_reset" [@@noalloc]
 
-external fold_int64 : state -> int64 -> state @@ portable = "siphash_fold_int64"
+external fold_int64_u
+  :  state
+  -> (int64#[@unboxed])
+  -> state
+  @@ portable
+  = "siphash_fold_int64" "siphash_fold_uint64"
 [@@noalloc]
 
 external fold_int : state -> int -> state @@ portable = "siphash_fold_int" [@@noalloc]
 
-external fold_float : state -> float -> state @@ portable = "siphash_fold_float"
+external fold_float_u
+  :  state
+  -> (float#[@unboxed])
+  -> state
+  @@ portable
+  = "siphash_fold_float" "siphash_fold_ufloat"
 [@@noalloc]
 
 external fold_string : state -> string -> state @@ portable = "siphash_fold_string"

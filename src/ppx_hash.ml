@@ -38,15 +38,17 @@ let () =
        name
        ~str_type_decl:
          (Deriving.Generator.make
-            Deriving.Args.(empty +> flag "portable")
-            (fun ~loc ~path tds portable ->
-              Ppx_hash_expander.str_type_decl ~loc ~path tds ~portable)
+            Deriving.Args.(empty +> flag "portable" +> flag "unboxed")
+            (fun ~loc ~path (rf, tds) portable unboxed ->
+              let tds = Ppx_helpers.with_implicit_unboxed_types ~loc ~unboxed tds in
+              Ppx_hash_expander.str_type_decl ~loc ~path (rf, tds) ~portable)
             ~attributes:Ppx_hash_expander.str_attributes)
        ~sig_type_decl:
          (Deriving.Generator.make
-            Deriving.Args.(empty +> flag "portable")
-            (fun ~loc ~path tds portable ->
-              Ppx_hash_expander.sig_type_decl ~loc ~path tds ~portable))
+            Deriving.Args.(empty +> flag "portable" +> flag "unboxed")
+            (fun ~loc ~path (rf, tds) portable unboxed ->
+              let tds = Ppx_helpers.with_implicit_unboxed_types ~loc ~unboxed tds in
+              Ppx_hash_expander.sig_type_decl ~loc ~path (rf, tds) ~portable))
        ~extension:(fun ~loc:_ ~path:_ ty -> Ppx_hash_expander.hash_core_type ty));
   Driver.register_transformation
     name
